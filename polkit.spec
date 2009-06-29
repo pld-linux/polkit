@@ -1,4 +1,3 @@
-# TODO: package bash-completion in proper way
 Summary:	A framework for defining policy for system-wide components
 Summary(pl.UTF-8):	Szkielet do definiowania polityki dla komponentów systemowych
 Name:		polkit
@@ -11,18 +10,15 @@ Source0:	http://hal.freedesktop.org/releases/%{name}-%{version}.tar.gz
 URL:		http://people.freedesktop.org/~david/polkit-spec.html
 BuildRequires:	autoconf >= 2.60
 BuildRequires:	automake >= 1:1.7
-BuildRequires:	dbus-devel >= 1.0
-BuildRequires:	dbus-glib-devel >= 0.73
-BuildRequires:	eggdbus-devel
+BuildRequires:	eggdbus-devel >= 0.4
 BuildRequires:	expat-devel >= 1:1.95.8
-BuildRequires:	glib2-devel >= 1:2.6.0
+BuildRequires:	gettext-devel
+BuildRequires:	glib2-devel >= 1:2.18.0
 BuildRequires:	gtk-doc >= 1.3
-BuildRequires:	libselinux-devel >= 1.30
+BuildRequires:	intltool >= 0.40.0
 BuildRequires:	libtool
 BuildRequires:	pam-devel >= 0.80
 BuildRequires:	pkgconfig
-BuildRequires:	rpmbuild(macros) >= 1.268
-BuildRequires:	xmlto
 Requires:	%{name}-libs = %{version}-%{release}
 Requires:	ConsoleKit >= 0.2.1
 Requires:	dbus >= 1.1.2-5
@@ -53,8 +49,8 @@ Dokumentacja API PolicyKit.
 Summary:	PolicyKit libraries
 Summary(pl.UTF-8):	Biblioteki PolicyKit
 Group:		Libraries
-Requires:	dbus-libs >= 1.0
-Requires:	glib2 >= 1:2.6.0
+Requires:	dbus-libs >= 1.1.2-5
+Requires:	glib2 >= 1:2.18.0
 Conflicts:	PolicyKit < 0.1-0.20061203.6
 
 %description libs
@@ -69,12 +65,7 @@ Summary(pl.UTF-8):	Pliki nagłówkowe PolicyKit
 Group:		Development/Libraries
 Requires:	%{name}-libs = %{version}-%{release}
 Requires:	expat-devel >= 1:1.95.8
-# polkit-grant
-#Requires:	glib2-devel >= 1:2.6.0
-# polkit-dbus and polkit-grant
-#Requires:	dbus-devel >= 1.0
-# polkit-dbus
-#Requires:	libselinux-devel >= 1.30
+Requires:	glib2-devel >= 1:2.18.0
 
 %description devel
 Header files for PolicyKit.
@@ -98,6 +89,7 @@ Statyczne biblioteki PolicyKit.
 %setup -q
 
 %build
+%{__intltoolize}
 %{__libtoolize}
 %{__aclocal}
 %{__autoconf}
