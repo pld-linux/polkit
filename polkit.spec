@@ -23,15 +23,6 @@ BuildRequires:	pam-devel >= 0.80
 BuildRequires:	pkgconfig
 BuildRequires:	rpmbuild(macros) >= 1.268
 BuildRequires:	xmlto
-Requires(postun):	/usr/sbin/groupdel
-Requires(postun):	/usr/sbin/userdel
-Requires(pre):	/bin/id
-Requires(pre):	/usr/bin/getgid
-Requires(pre):	/usr/lib/rpm/user_group.sh
-Requires(pre):	/usr/sbin/groupadd
-Requires(pre):	/usr/sbin/useradd
-Requires(pre):	/usr/sbin/usermod
-Requires(triggerpostun):	/sbin/chkconfig
 Requires:	%{name}-libs = %{version}-%{release}
 Requires:	ConsoleKit >= 0.2.1
 Requires:	dbus >= 1.1.2-5
