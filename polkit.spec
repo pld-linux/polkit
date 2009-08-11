@@ -1,3 +1,7 @@
+
+# Conditional build:
+%bcond_without	apidocs			# build without apidocs
+
 Summary:	A framework for defining policy for system-wide components
 Summary(pl.UTF-8):	Szkielet do definiowania polityki dla komponentów systemowych
 Name:		polkit
@@ -13,8 +17,8 @@ BuildRequires:	automake >= 1:1.7
 BuildRequires:	eggdbus-devel >= 0.4
 BuildRequires:	expat-devel >= 1:1.95.8
 BuildRequires:	gettext-devel
-BuildRequires:	glib2-devel >= 1:2.18.0
-BuildRequires:	gtk-doc >= 1.3
+BuildRequires:	glib2-devel >= 1:2.21.4
+%{?with_apidocs:BuildRequires:	gtk-doc >= 1.3}
 BuildRequires:	intltool >= 0.40.0
 BuildRequires:	libtool
 BuildRequires:	pam-devel >= 0.80
@@ -96,7 +100,7 @@ Statyczne biblioteki PolicyKit.
 %{__autoheader}
 %{__automake}
 %configure \
-	--enable-gtk-doc \
+	--%{!?with_apidocs:dis}%{?with_apidocs:en}able-gtk-doc \
 	--with-html-dir=%{_gtkdocdir} \
 	--with-pam-include=system-auth \
 	--with-pam-module-dir=/%{_lib}/security
@@ -147,9 +151,11 @@ rm -rf $RPM_BUILD_ROOT
 %{_mandir}/man8/polkit.8*
 %{_mandir}/man8/polkitd.8*
 
+%if %{with apidocs}
 %files apidocs
 %defattr(644,root,root,755)
 %{_gtkdocdir}/polkit-1
+%endif
 
 %files libs
 %defattr(644,root,root,755)
