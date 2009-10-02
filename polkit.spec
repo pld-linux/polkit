@@ -6,7 +6,7 @@ Summary:	A framework for defining policy for system-wide components
 Summary(pl.UTF-8):	Szkielet do definiowania polityki dla komponentów systemowych
 Name:		polkit
 Version:	0.94
-Release:	1
+Release:	2
 License:	LGPL v2+
 Group:		Libraries
 Source0:	http://hal.freedesktop.org/releases/%{name}-%{version}.tar.gz
@@ -26,7 +26,7 @@ BuildRequires:	libtool
 BuildRequires:	pam-devel >= 0.80
 BuildRequires:	pkgconfig
 Requires:	%{name}-libs = %{version}-%{release}
-Requires:	ConsoleKit >= 0.2.1
+Requires:	ConsoleKit >= 0.4.1
 Requires:	dbus >= 1.1.2-5
 BuildRoot:	%{tmpdir}/%{name}-%{version}-root-%(id -u -n)
 
