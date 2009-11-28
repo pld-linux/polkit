@@ -14,17 +14,20 @@ Source0:	http://hal.freedesktop.org/releases/%{name}-%{version}.tar.gz
 URL:		http://people.freedesktop.org/~david/polkit-spec.html
 BuildRequires:	autoconf >= 2.60
 BuildRequires:	automake >= 1:1.7
+BuildRequires:	docbook-dtd412-xml
 BuildRequires:	eggdbus-devel >= 0.5
 BuildRequires:	expat-devel >= 1:1.95.8
 BuildRequires:	gettext-devel
 BuildRequires:	gir-repository-devel
 BuildRequires:	glib2-devel >= 1:2.21.4
+BuildRequires:	glibc-misc
 BuildRequires:	gobject-introspection-devel
 %{?with_apidocs:BuildRequires:	gtk-doc >= 1.3}
 BuildRequires:	intltool >= 0.40.0
 BuildRequires:	libtool
 BuildRequires:	pam-devel >= 0.80
 BuildRequires:	pkgconfig
+BuildRequires:	python-modules
 Requires:	%{name}-libs = %{version}-%{release}
 Requires:	ConsoleKit >= 0.4.1
 Requires:	dbus >= 1.1.2-5
