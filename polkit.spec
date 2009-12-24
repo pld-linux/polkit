@@ -15,7 +15,7 @@ URL:		http://people.freedesktop.org/~david/polkit-spec.html
 BuildRequires:	autoconf >= 2.60
 BuildRequires:	automake >= 1:1.7
 BuildRequires:	docbook-dtd412-xml
-BuildRequires:	eggdbus-devel >= 0.5
+BuildRequires:	eggdbus-devel >= 0.6
 BuildRequires:	expat-devel >= 1:1.95.8
 BuildRequires:	gettext-devel
 BuildRequires:	gir-repository-devel
