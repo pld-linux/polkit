@@ -21,7 +21,7 @@ BuildRequires:	gettext-devel
 BuildRequires:	gir-repository-devel
 BuildRequires:	glib2-devel >= 1:2.21.4
 BuildRequires:	glibc-misc
-BuildRequires:	gobject-introspection-devel
+BuildRequires:	gobject-introspection-devel >= 0.6.2
 %{?with_apidocs:BuildRequires:	gtk-doc >= 1.3}
 BuildRequires:	intltool >= 0.40.0
 BuildRequires:	libtool
@@ -98,6 +98,7 @@ Statyczne biblioteki PolicyKit.
 %setup -q
 
 %build
+%{__gtkdocize}
 %{__intltoolize}
 %{__libtoolize}
 %{__aclocal}
