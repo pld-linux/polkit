@@ -5,16 +5,17 @@
 Summary:	A framework for defining policy for system-wide components
 Summary(pl.UTF-8):	Szkielet do definiowania polityki dla komponentów systemowych
 Name:		polkit
-Version:	0.95
+Version:	0.96
 Release:	1
 License:	LGPL v2+
 Group:		Libraries
 Source0:	http://hal.freedesktop.org/releases/%{name}-%{version}.tar.gz
-# Source0-md5:	10971f5d334550025897b02d779fddd1
-URL:		http://people.freedesktop.org/~david/polkit-spec.html
+# Source0-md5:	e0a06da501b04ed3bab986a9df5b5aa2
+URL:		http://www.freedesktop.org/wiki/Software/PolicyKit
 BuildRequires:	autoconf >= 2.60
 BuildRequires:	automake >= 1:1.7
 BuildRequires:	docbook-dtd412-xml
+BuildRequires:	docbook-style-xsl
 BuildRequires:	eggdbus-devel >= 0.6
 BuildRequires:	expat-devel >= 1:1.95.8
 BuildRequires:	gettext-devel
@@ -23,11 +24,14 @@ BuildRequires:	glib2-devel >= 1:2.21.4
 BuildRequires:	glibc-misc
 BuildRequires:	gobject-introspection-devel >= 0.6.2
 %{?with_apidocs:BuildRequires:	gtk-doc >= 1.3}
+BuildRequires:	gtk-doc-automake
 BuildRequires:	intltool >= 0.40.0
 BuildRequires:	libtool
+BuildRequires:	libxslt-progs
 BuildRequires:	pam-devel >= 0.80
 BuildRequires:	pkgconfig
 BuildRequires:	python-modules
+BuildRequires:	rpmbuild(macros) >= 1.527
 Requires:	%{name}-libs = %{version}-%{release}
 Requires:	ConsoleKit >= 0.4.1
 Requires:	dbus >= 1.1.2-5
@@ -98,7 +102,7 @@ Statyczne biblioteki PolicyKit.
 %setup -q
 
 %build
-%{__gtkdocize}
+%{?with_apidocs:%{__gtkdocize}}
 %{__intltoolize}
 %{__libtoolize}
 %{__aclocal}
@@ -106,7 +110,7 @@ Statyczne biblioteki PolicyKit.
 %{__autoheader}
 %{__automake}
 %configure \
-	--%{!?with_apidocs:dis}%{?with_apidocs:en}able-gtk-doc \
+	%{__enable_disable apidocs gtk-doc} \
 	--with-html-dir=%{_gtkdocdir} \
 	--with-pam-include=system-auth \
 	--with-pam-module-dir=/%{_lib}/security
