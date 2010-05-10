@@ -6,7 +6,7 @@ Summary:	A framework for defining policy for system-wide components
 Summary(pl.UTF-8):	Szkielet do definiowania polityki dla komponentów systemowych
 Name:		polkit
 Version:	0.96
-Release:	1
+Release:	2
 License:	LGPL v2+
 Group:		Libraries
 Source0:	http://hal.freedesktop.org/releases/%{name}-%{version}.tar.gz
@@ -147,6 +147,12 @@ rm -rf $RPM_BUILD_ROOT
 %dir %{_sysconfdir}/polkit-1
 %dir %{_sysconfdir}/polkit-1/localauthority.conf.d
 %config(noreplace) %verify(not md5 mtime size) %{_sysconfdir}/polkit-1/localauthority.conf.d/*.conf
+%attr(700,root,root) %dir %{_sysconfdir}/polkit-1/localauthority
+%dir %{_sysconfdir}/polkit-1/localauthority/10-vendor.d
+%dir %{_sysconfdir}/polkit-1/localauthority/20-org.d
+%dir %{_sysconfdir}/polkit-1/localauthority/30-site.d
+%dir %{_sysconfdir}/polkit-1/localauthority/50-local.d
+%dir %{_sysconfdir}/polkit-1/localauthority/90-mandatory.d
 %dir %{_sysconfdir}/polkit-1/nullbackend.conf.d
 %config(noreplace) %verify(not md5 mtime size) %{_sysconfdir}/polkit-1/nullbackend.conf.d/*.conf
 /etc/dbus-1/system.d/org.freedesktop.PolicyKit1.conf
@@ -154,6 +160,12 @@ rm -rf $RPM_BUILD_ROOT
 %{_datadir}/polkit-1
 %{_datadir}/dbus-1/system-services/org.freedesktop.PolicyKit1.service
 %attr(700,root,root) %dir /var/lib/polkit-1
+%dir /var/lib/polkit-1/localauthority
+%dir /var/lib/polkit-1/localauthority/10-vendor.d
+%dir /var/lib/polkit-1/localauthority/20-org.d
+%dir /var/lib/polkit-1/localauthority/30-site.d
+%dir /var/lib/polkit-1/localauthority/50-local.d
+%dir /var/lib/polkit-1/localauthority/90-mandatory.d
 %{_mandir}/man1/pkaction.1*
 %{_mandir}/man1/pkcheck.1*
 %{_mandir}/man1/pkexec.1*
