@@ -1,7 +1,7 @@
-
+#
 # Conditional build:
 %bcond_without	apidocs			# build without apidocs
-
+#
 Summary:	A framework for defining policy for system-wide components
 Summary(pl.UTF-8):	Szkielet do definiowania polityki dla komponentów systemowych
 Name:		polkit
@@ -19,7 +19,6 @@ BuildRequires:	docbook-style-xsl
 BuildRequires:	eggdbus-devel >= 0.6
 BuildRequires:	expat-devel >= 1:1.95.8
 BuildRequires:	gettext-devel
-BuildRequires:	gir-repository-devel
 BuildRequires:	glib2-devel >= 1:2.21.4
 BuildRequires:	glibc-misc
 BuildRequires:	gobject-introspection-devel >= 0.6.2
@@ -111,6 +110,7 @@ Statyczne biblioteki PolicyKit.
 %{__automake}
 %configure \
 	%{__enable_disable apidocs gtk-doc} \
+	--disable-silent-rules \
 	--with-html-dir=%{_gtkdocdir} \
 	--with-pam-include=system-auth \
 	--with-pam-module-dir=/%{_lib}/security
@@ -189,7 +189,7 @@ rm -rf $RPM_BUILD_ROOT
 %attr(755,root,root) %ghost %{_libdir}/libpolkit-backend-1.so.0
 %attr(755,root,root) %{_libdir}/libpolkit-gobject-1.so.*.*.*
 %attr(755,root,root) %ghost %{_libdir}/libpolkit-gobject-1.so.0
-%{_libdir}/girepository-1.0/*.typelib
+%{_libdir}/girepository-1.0/Polkit-1.0.typelib
 
 %files devel
 %defattr(644,root,root,755)
@@ -203,7 +203,7 @@ rm -rf $RPM_BUILD_ROOT
 %{_pkgconfigdir}/polkit-agent-1.pc
 %{_pkgconfigdir}/polkit-backend-1.pc
 %{_pkgconfigdir}/polkit-gobject-1.pc
-%{_datadir}/gir-1.0/*.gir
+%{_datadir}/gir-1.0/Polkit-1.0.gir
 
 %files static
 %defattr(644,root,root,755)
