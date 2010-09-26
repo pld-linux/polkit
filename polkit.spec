@@ -19,7 +19,7 @@ BuildRequires:	docbook-style-xsl
 BuildRequires:	eggdbus-devel >= 0.6
 BuildRequires:	expat-devel >= 1:1.95.8
 BuildRequires:	gettext-devel
-BuildRequires:	glib2-devel >= 1:2.21.4
+BuildRequires:	glib2-devel >= 1:2.25.12
 BuildRequires:	glibc-misc
 BuildRequires:	gobject-introspection-devel >= 0.6.2
 %{?with_apidocs:BuildRequires:	gtk-doc >= 1.3}
@@ -62,7 +62,7 @@ Summary:	PolicyKit libraries
 Summary(pl.UTF-8):	Biblioteki PolicyKit
 Group:		Libraries
 Requires:	dbus-libs >= 1.1.2-5
-Requires:	glib2 >= 1:2.18.0
+Requires:	glib2 >= 1:2.25.12
 Conflicts:	PolicyKit < 0.1-0.20061203.6
 
 %description libs
@@ -77,7 +77,7 @@ Summary(pl.UTF-8):	Pliki nagłówkowe PolicyKit
 Group:		Development/Libraries
 Requires:	%{name}-libs = %{version}-%{release}
 Requires:	expat-devel >= 1:1.95.8
-Requires:	glib2-devel >= 1:2.18.0
+Requires:	glib2-devel >= 1:2.25.12
 
 %description devel
 Header files for PolicyKit.
