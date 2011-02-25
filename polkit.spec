@@ -190,6 +190,7 @@ rm -rf $RPM_BUILD_ROOT
 %attr(755,root,root) %{_libdir}/libpolkit-gobject-1.so.*.*.*
 %attr(755,root,root) %ghost %{_libdir}/libpolkit-gobject-1.so.0
 %{_libdir}/girepository-1.0/Polkit-1.0.typelib
+%{_libdir}/girepository-1.0/PolkitAgent-1.0.typelib
 
 %files devel
 %defattr(644,root,root,755)
@@ -204,6 +205,7 @@ rm -rf $RPM_BUILD_ROOT
 %{_pkgconfigdir}/polkit-backend-1.pc
 %{_pkgconfigdir}/polkit-gobject-1.pc
 %{_datadir}/gir-1.0/Polkit-1.0.gir
+%{_datadir}/gir-1.0/PolkitAgent-1.0.gir
 
 %files static
 %defattr(644,root,root,755)
