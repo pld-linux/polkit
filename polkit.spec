@@ -5,21 +5,20 @@
 Summary:	A framework for defining policy for system-wide components
 Summary(pl.UTF-8):	Szkielet do definiowania polityki dla komponentów systemowych
 Name:		polkit
-Version:	0.100
+Version:	0.101
 Release:	1
 License:	LGPL v2+
 Group:		Libraries
 Source0:	http://hal.freedesktop.org/releases/%{name}-%{version}.tar.gz
-# Source0-md5:	9f957bf046ff5a32b0fa0ffe1e35c09c
+# Source0-md5:	f925ac93aba3c072977370c1e27feb7f
 URL:		http://www.freedesktop.org/wiki/Software/PolicyKit
 BuildRequires:	autoconf >= 2.60
 BuildRequires:	automake >= 1:1.7
 BuildRequires:	docbook-dtd412-xml
 BuildRequires:	docbook-style-xsl
-BuildRequires:	eggdbus-devel >= 0.6
 BuildRequires:	expat-devel >= 1:1.95.8
 BuildRequires:	gettext-devel
-BuildRequires:	glib2-devel >= 1:2.25.12
+BuildRequires:	glib2-devel >= 1:2.28.0
 BuildRequires:	glibc-misc
 BuildRequires:	gobject-introspection-devel >= 0.6.2
 %{?with_apidocs:BuildRequires:	gtk-doc >= 1.3}
@@ -62,7 +61,7 @@ Summary:	PolicyKit libraries
 Summary(pl.UTF-8):	Biblioteki PolicyKit
 Group:		Libraries
 Requires:	dbus-libs >= 1.1.2-5
-Requires:	glib2 >= 1:2.25.12
+Requires:	glib2 >= 1:2.28.0
 Conflicts:	PolicyKit < 0.1-0.20061203.6
 
 %description libs
@@ -77,7 +76,7 @@ Summary(pl.UTF-8):	Pliki nagłówkowe PolicyKit
 Group:		Development/Libraries
 Requires:	%{name}-libs = %{version}-%{release}
 Requires:	expat-devel >= 1:1.95.8
-Requires:	glib2-devel >= 1:2.25.12
+Requires:	glib2-devel >= 1:2.28.0
 
 %description devel
 Header files for PolicyKit.
@@ -122,7 +121,8 @@ rm -rf $RPM_BUILD_ROOT
 %{__make} install \
 	DESTDIR=$RPM_BUILD_ROOT
 
-rm -f $RPM_BUILD_ROOT%{_libdir}/polkit-1/extensions/*.{la,a}
+%{__rm} $RPM_BUILD_ROOT%{_libdir}/polkit-1/extensions/*.{la,a}
+%{__rm} $RPM_BUILD_ROOT%{_libdir}/*.la
 
 %find_lang polkit-1
 
@@ -138,12 +138,12 @@ rm -rf $RPM_BUILD_ROOT
 %attr(755,root,root) %{_bindir}/pkaction
 %attr(755,root,root) %{_bindir}/pkcheck
 %attr(4755,root,root) %{_bindir}/pkexec
+%attr(755,root,root) %{_bindir}/pk-example-frobnicate
 %attr(4755,root,root) %{_libexecdir}/polkit-agent-helper-1
 %attr(755,root,root) %{_libexecdir}/polkitd
 %dir %{_libdir}/polkit-1
 %dir %{_libdir}/polkit-1/extensions
 %attr(755,root,root) %{_libdir}/polkit-1/extensions/libnullbackend.so
-%attr(755,root,root) %{_libdir}/polkit-1/extensions/libpkexec-action-lookup.so
 %dir %{_sysconfdir}/polkit-1
 %dir %{_sysconfdir}/polkit-1/localauthority.conf.d
 %config(noreplace) %verify(not md5 mtime size) %{_sysconfdir}/polkit-1/localauthority.conf.d/*.conf
@@ -197,9 +197,6 @@ rm -rf $RPM_BUILD_ROOT
 %attr(755,root,root) %{_libdir}/libpolkit-agent-1.so
 %attr(755,root,root) %{_libdir}/libpolkit-backend-1.so
 %attr(755,root,root) %{_libdir}/libpolkit-gobject-1.so
-%{_libdir}/libpolkit-agent-1.la
-%{_libdir}/libpolkit-backend-1.la
-%{_libdir}/libpolkit-gobject-1.la
 %{_includedir}/polkit-1
 %{_pkgconfigdir}/polkit-agent-1.pc
 %{_pkgconfigdir}/polkit-backend-1.pc
