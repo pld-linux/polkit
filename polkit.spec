@@ -5,12 +5,12 @@
 Summary:	A framework for defining policy for system-wide components
 Summary(pl.UTF-8):	Szkielet do definiowania polityki dla komponentów systemowych
 Name:		polkit
-Version:	0.101
+Version:	0.102
 Release:	1
 License:	LGPL v2+
 Group:		Libraries
 Source0:	http://hal.freedesktop.org/releases/%{name}-%{version}.tar.gz
-# Source0-md5:	f925ac93aba3c072977370c1e27feb7f
+# Source0-md5:	a3726bdb9728c103e58f62131e26693a
 URL:		http://www.freedesktop.org/wiki/Software/PolicyKit
 BuildRequires:	autoconf >= 2.60
 BuildRequires:	automake >= 1:1.7
@@ -22,7 +22,7 @@ BuildRequires:	glib2-devel >= 1:2.28.0
 BuildRequires:	glibc-misc
 BuildRequires:	gobject-introspection-devel >= 0.6.2
 %{?with_apidocs:BuildRequires:	gtk-doc >= 1.3}
-BuildRequires:	gtk-doc-automake
+BuildRequires:	gtk-doc-automake >= 1.3
 BuildRequires:	intltool >= 0.40.0
 BuildRequires:	libtool
 BuildRequires:	libxslt-progs
@@ -134,7 +134,7 @@ rm -rf $RPM_BUILD_ROOT
 
 %files -f polkit-1.lang
 %defattr(644,root,root,755)
-%doc AUTHORS README
+%doc AUTHORS NEWS README
 %attr(755,root,root) %{_bindir}/pkaction
 %attr(755,root,root) %{_bindir}/pkcheck
 %attr(4755,root,root) %{_bindir}/pkexec
