@@ -6,11 +6,12 @@ Summary:	A framework for defining policy for system-wide components
 Summary(pl.UTF-8):	Szkielet do definiowania polityki dla komponentów systemowych
 Name:		polkit
 Version:	0.102
-Release:	1
+Release:	2
 License:	LGPL v2+
 Group:		Libraries
 Source0:	http://hal.freedesktop.org/releases/%{name}-%{version}.tar.gz
 # Source0-md5:	a3726bdb9728c103e58f62131e26693a
+Patch0:		%{name}-stdout-and-stderr.patch
 URL:		http://www.freedesktop.org/wiki/Software/PolicyKit
 BuildRequires:	autoconf >= 2.60
 BuildRequires:	automake >= 1:1.7
@@ -98,6 +99,7 @@ Statyczne biblioteki PolicyKit.
 
 %prep
 %setup -q
+%patch0 -p1
 
 %build
 %{?with_apidocs:%{__gtkdocize}}
