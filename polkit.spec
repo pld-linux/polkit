@@ -1,16 +1,17 @@
 #
 # Conditional build:
-%bcond_without	apidocs			# build without apidocs
+%bcond_without	apidocs		# build without apidocs
+%bcond_with	systemd		# rely on systemd for session tracking instead of ConsoleKit
 #
 Summary:	A framework for defining policy for system-wide components
 Summary(pl.UTF-8):	Szkielet do definiowania polityki dla komponentów systemowych
 Name:		polkit
-Version:	0.103
+Version:	0.104
 Release:	1
 License:	LGPL v2+
 Group:		Libraries
 Source0:	http://hal.freedesktop.org/releases/%{name}-%{version}.tar.gz
-# Source0-md5:	aaacf2ef18774ea8a825a426a7cfe763
+# Source0-md5:	e380b4c6fb1e7bccf854e92edc0a8ce1
 URL:		http://www.freedesktop.org/wiki/Software/PolicyKit
 BuildRequires:	autoconf >= 2.60
 BuildRequires:	automake >= 1:1.7
@@ -30,19 +31,19 @@ BuildRequires:	pam-devel >= 0.80
 BuildRequires:	pkgconfig
 BuildRequires:	python-modules
 BuildRequires:	rpmbuild(macros) >= 1.527
+%{?with_systemd:BuildRequires:	systemd-devel}
 Requires:	%{name}-libs = %{version}-%{release}
-Requires:	ConsoleKit >= 0.4.1
+%{!?with_systemd:Requires:	ConsoleKit >= 0.4.1}
 Requires:	dbus >= 1.1.2-5
 BuildRoot:	%{tmpdir}/%{name}-%{version}-root-%(id -u -n)
 
 %description
 PolicyKit is a framework for defining policy for system-wide
-components and for desktop pieces to configure it. It is used by HAL.
+components and for desktop pieces to configure it.
 
 %description -l pl.UTF-8
 PolicyKit to szkielet do definiowania polityki dla komponentów
-systemowych oraz składników pulpitu do konfigurowania ich. Jest
-używany przez HAL-a.
+systemowych oraz składników pulpitu do konfigurowania ich.
 
 %package apidocs
 Summary:	PolicyKit API documentation
@@ -110,6 +111,7 @@ Statyczne biblioteki PolicyKit.
 %configure \
 	%{__enable_disable apidocs gtk-doc} \
 	--disable-silent-rules \
+	%{!?with_systemd:--disable-systemd} \
 	--with-html-dir=%{_gtkdocdir} \
 	--with-pam-include=system-auth \
 	--with-pam-module-dir=/%{_lib}/security
