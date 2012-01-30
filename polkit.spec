@@ -7,7 +7,7 @@ Summary:	A framework for defining policy for system-wide components
 Summary(pl.UTF-8):	Szkielet do definiowania polityki dla komponentów systemowych
 Name:		polkit
 Version:	0.104
-Release:	1
+Release:	2
 License:	LGPL v2+
 Group:		Libraries
 Source0:	http://hal.freedesktop.org/releases/%{name}-%{version}.tar.gz
@@ -35,6 +35,7 @@ BuildRequires:	rpmbuild(macros) >= 1.527
 Requires:	%{name}-libs = %{version}-%{release}
 %{!?with_systemd:Requires:	ConsoleKit >= 0.4.1}
 Requires:	dbus >= 1.1.2-5
+Obsoletes:	PolicyKit
 BuildRoot:	%{tmpdir}/%{name}-%{version}-root-%(id -u -n)
 
 %description
@@ -50,6 +51,7 @@ Summary:	PolicyKit API documentation
 Summary(pl.UTF-8):	Dokumentacja API PolicyKit
 Group:		Documentation
 Requires:	gtk-doc-common
+Obsoletes:	PolicyKit-apidocs
 
 %description apidocs
 PolicyKit API documentation.
@@ -63,7 +65,7 @@ Summary(pl.UTF-8):	Biblioteki PolicyKit
 Group:		Libraries
 Requires:	dbus-libs >= 1.1.2-5
 Requires:	glib2 >= 1:2.28.0
-Conflicts:	PolicyKit < 0.1-0.20061203.6
+Obsoletes:	PolicyKit-libs
 
 %description libs
 PolicyKit libraries.
@@ -78,6 +80,7 @@ Group:		Development/Libraries
 Requires:	%{name}-libs = %{version}-%{release}
 Requires:	expat-devel >= 1:1.95.8
 Requires:	glib2-devel >= 1:2.28.0
+Obsoletes:	PolicyKit-devel
 
 %description devel
 Header files for PolicyKit.
@@ -90,6 +93,7 @@ Summary:	Static PolicyKit libraries
 Summary(pl.UTF-8):	Statyczne biblioteki PolicyKit
 Group:		Development/Libraries
 Requires:	%{name}-devel = %{version}-%{release}
+Obsoletes:	PolicyKit-static
 
 %description static
 Static PolicyKit libraries.
