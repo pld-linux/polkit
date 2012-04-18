@@ -2,12 +2,12 @@
 # Conditional build:
 %bcond_without	apidocs		# build without apidocs
 %bcond_without	systemd		# use systemd for session tracking instead of ConsoleKit (fallback to ConsoleKit on runtime)
-#
+
 Summary:	A framework for defining policy for system-wide components
 Summary(pl.UTF-8):	Szkielet do definiowania polityki dla komponentów systemowych
 Name:		polkit
 Version:	0.104
-Release:	3
+Release:	4
 License:	LGPL v2+
 Group:		Libraries
 Source0:	http://hal.freedesktop.org/releases/%{name}-%{version}.tar.gz
@@ -20,7 +20,7 @@ BuildRequires:	docbook-dtd412-xml
 BuildRequires:	docbook-style-xsl
 BuildRequires:	expat-devel >= 1:1.95.8
 BuildRequires:	gettext-devel
-BuildRequires:	glib2-devel >= 1:2.28.0
+BuildRequires:	glib2-devel >= 1:2.32.0
 BuildRequires:	glibc-misc
 BuildRequires:	gobject-introspection-devel >= 0.6.2
 %{?with_apidocs:BuildRequires:	gtk-doc >= 1.3}
@@ -65,7 +65,7 @@ Summary:	PolicyKit libraries
 Summary(pl.UTF-8):	Biblioteki PolicyKit
 Group:		Libraries
 Requires:	dbus-libs >= 1.1.2-5
-Requires:	glib2 >= 1:2.28.0
+Requires:	glib2 >= 1:2.32.0
 Obsoletes:	PolicyKit-libs
 
 %description libs
@@ -80,7 +80,7 @@ Summary(pl.UTF-8):	Pliki nagłówkowe PolicyKit
 Group:		Development/Libraries
 Requires:	%{name}-libs = %{version}-%{release}
 Requires:	expat-devel >= 1:1.95.8
-Requires:	glib2-devel >= 1:2.28.0
+Requires:	glib2-devel >= 1:2.32.0
 Obsoletes:	PolicyKit-devel
 
 %description devel
