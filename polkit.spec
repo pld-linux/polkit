@@ -6,14 +6,14 @@
 Summary:	A framework for defining policy for system-wide components
 Summary(pl.UTF-8):	Szkielet do definiowania polityki dla komponentów systemowych
 Name:		polkit
-Version:	0.104
-Release:	4
+Version:	0.107
+Release:	1
 License:	LGPL v2+
 Group:		Libraries
-Source0:	http://hal.freedesktop.org/releases/%{name}-%{version}.tar.gz
-# Source0-md5:	e380b4c6fb1e7bccf854e92edc0a8ce1
+Source0:	http://www.freedesktop.org/software/polkit/releases/%{name}-%{version}.tar.gz
+# Source0-md5:	0e4f9c53f43fd1b25ac3f0d2e09b2ae1
 Patch0:		systemd-fallback.patch
-URL:		http://www.freedesktop.org/wiki/Software/PolicyKit
+URL:		http://www.freedesktop.org/wiki/Software/polkit
 BuildRequires:	autoconf >= 2.60
 BuildRequires:	automake >= 1:1.7
 BuildRequires:	docbook-dtd412-xml
@@ -26,15 +26,21 @@ BuildRequires:	gobject-introspection-devel >= 0.6.2
 %{?with_apidocs:BuildRequires:	gtk-doc >= 1.3}
 BuildRequires:	gtk-doc-automake >= 1.3
 BuildRequires:	intltool >= 0.40.0
+BuildRequires:	js185-devel
 BuildRequires:	libtool
 BuildRequires:	libxslt-progs
 BuildRequires:	pam-devel >= 0.80
 BuildRequires:	pkgconfig
 BuildRequires:	python-modules
-BuildRequires:	rpmbuild(macros) >= 1.527
+BuildRequires:	rpmbuild(macros) >= 1.647
 %{?with_systemd:BuildRequires:	systemd-devel}
 Requires:	%{name}-libs = %{version}-%{release}
+%if %{without systemd}
 Requires:	ConsoleKit >= 0.4.1
+%else
+Requires:	systemd-units >= 38
+Suggests:	ConsoleKit >= 0.4.1
+%endif
 Requires:	dbus >= 1.1.2-5
 Obsoletes:	PolicyKit
 BuildRoot:	%{tmpdir}/%{name}-%{version}-root-%(id -u -n)
@@ -120,7 +126,8 @@ Statyczne biblioteki PolicyKit.
 	%{__enable_disable systemd systemd} \
 	--with-html-dir=%{_gtkdocdir} \
 	--with-pam-include=system-auth \
-	--with-pam-module-dir=/%{_lib}/security
+	--with-pam-module-dir=/%{_lib}/security \
+	--with-polkitd-user=polkitd
 %{__make}
 
 %install
@@ -129,13 +136,30 @@ rm -rf $RPM_BUILD_ROOT
 %{__make} install \
 	DESTDIR=$RPM_BUILD_ROOT
 
-%{__rm} $RPM_BUILD_ROOT%{_libdir}/polkit-1/extensions/*.{la,a}
 %{__rm} $RPM_BUILD_ROOT%{_libdir}/*.la
 
 %find_lang polkit-1
 
 %clean
 rm -rf $RPM_BUILD_ROOT
+
+%pre
+%groupadd -g 283 polkitd
+%useradd -u 283 -s /bin/false -c "polkitd pseudo user" -g polkitd polkitd
+
+%post
+%{?with_systemd:%systemd_post polkit.service}
+
+%preun
+%{?with_systemd:%systemd_preun polkit.service}
+
+%postun
+if [ "$1" = "0" ]; then
+	%userremove polkitd
+	%groupremove polkitd
+fi
+
+%{?with_systemd:%systemd_reload}
 
 %post	libs -p /sbin/ldconfig
 %postun	libs -p /sbin/ldconfig
@@ -146,38 +170,25 @@ rm -rf $RPM_BUILD_ROOT
 %attr(755,root,root) %{_bindir}/pkaction
 %attr(755,root,root) %{_bindir}/pkcheck
 %attr(4755,root,root) %{_bindir}/pkexec
+%attr(755,root,root) %{_bindir}/pkttyagent
 %attr(755,root,root) %{_bindir}/pk-example-frobnicate
-%attr(4755,root,root) %{_libexecdir}/polkit-agent-helper-1
-%attr(755,root,root) %{_libexecdir}/polkitd
-%dir %{_libdir}/polkit-1
-%dir %{_libdir}/polkit-1/extensions
-%attr(755,root,root) %{_libdir}/polkit-1/extensions/libnullbackend.so
+%dir %{_prefix}/lib/polkit-1
+%attr(4755,root,root) %{_prefix}/lib/polkit-1/polkit-agent-helper-1
+%attr(755,root,root) %{_prefix}/lib/polkit-1/polkitd
 %dir %{_sysconfdir}/polkit-1
-%dir %{_sysconfdir}/polkit-1/localauthority.conf.d
-%config(noreplace) %verify(not md5 mtime size) %{_sysconfdir}/polkit-1/localauthority.conf.d/*.conf
-%attr(700,root,root) %dir %{_sysconfdir}/polkit-1/localauthority
-%dir %{_sysconfdir}/polkit-1/localauthority/10-vendor.d
-%dir %{_sysconfdir}/polkit-1/localauthority/20-org.d
-%dir %{_sysconfdir}/polkit-1/localauthority/30-site.d
-%dir %{_sysconfdir}/polkit-1/localauthority/50-local.d
-%dir %{_sysconfdir}/polkit-1/localauthority/90-mandatory.d
-%dir %{_sysconfdir}/polkit-1/nullbackend.conf.d
-%config(noreplace) %verify(not md5 mtime size) %{_sysconfdir}/polkit-1/nullbackend.conf.d/*.conf
+%attr(700,polkitd,root) %dir %{_sysconfdir}/polkit-1/rules.d
+%config(noreplace) %verify(not md5 mtime size) %{_sysconfdir}/polkit-1/rules.d/50-default.rules
 /etc/dbus-1/system.d/org.freedesktop.PolicyKit1.conf
 /etc/pam.d/polkit-1
-%{_datadir}/polkit-1
+%dir %{_datadir}/polkit-1
+%{_datadir}/polkit-1/actions
+%attr(700,polkitd,root) %dir %{_datadir}/polkit-1/rules.d
 %{_datadir}/dbus-1/system-services/org.freedesktop.PolicyKit1.service
-%attr(700,root,root) %dir /var/lib/polkit-1
-%dir /var/lib/polkit-1/localauthority
-%dir /var/lib/polkit-1/localauthority/10-vendor.d
-%dir /var/lib/polkit-1/localauthority/20-org.d
-%dir /var/lib/polkit-1/localauthority/30-site.d
-%dir /var/lib/polkit-1/localauthority/50-local.d
-%dir /var/lib/polkit-1/localauthority/90-mandatory.d
+%{?with_systemd:%{systemdunitdir}/polkit.service}
 %{_mandir}/man1/pkaction.1*
 %{_mandir}/man1/pkcheck.1*
 %{_mandir}/man1/pkexec.1*
-%{_mandir}/man8/pklocalauthority.8*
+%{_mandir}/man1/pkttyagent.1*
 %{_mandir}/man8/polkit.8*
 %{_mandir}/man8/polkitd.8*
 
@@ -193,8 +204,6 @@ rm -rf $RPM_BUILD_ROOT
 %doc COPYING
 %attr(755,root,root) %{_libdir}/libpolkit-agent-1.so.*.*.*
 %attr(755,root,root) %ghost %{_libdir}/libpolkit-agent-1.so.0
-%attr(755,root,root) %{_libdir}/libpolkit-backend-1.so.*.*.*
-%attr(755,root,root) %ghost %{_libdir}/libpolkit-backend-1.so.0
 %attr(755,root,root) %{_libdir}/libpolkit-gobject-1.so.*.*.*
 %attr(755,root,root) %ghost %{_libdir}/libpolkit-gobject-1.so.0
 %{_libdir}/girepository-1.0/Polkit-1.0.typelib
@@ -203,11 +212,9 @@ rm -rf $RPM_BUILD_ROOT
 %files devel
 %defattr(644,root,root,755)
 %attr(755,root,root) %{_libdir}/libpolkit-agent-1.so
-%attr(755,root,root) %{_libdir}/libpolkit-backend-1.so
 %attr(755,root,root) %{_libdir}/libpolkit-gobject-1.so
 %{_includedir}/polkit-1
 %{_pkgconfigdir}/polkit-agent-1.pc
-%{_pkgconfigdir}/polkit-backend-1.pc
 %{_pkgconfigdir}/polkit-gobject-1.pc
 %{_datadir}/gir-1.0/Polkit-1.0.gir
 %{_datadir}/gir-1.0/PolkitAgent-1.0.gir
@@ -215,5 +222,4 @@ rm -rf $RPM_BUILD_ROOT
 %files static
 %defattr(644,root,root,755)
 %{_libdir}/libpolkit-agent-1.a
-%{_libdir}/libpolkit-backend-1.a
 %{_libdir}/libpolkit-gobject-1.a

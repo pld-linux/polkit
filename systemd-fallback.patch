@@ -1,59 +1,45 @@
-diff -uNr polkit-0.104/configure.ac polkit-0.104.systemd/configure.ac
---- polkit-0.104/configure.ac	2012-01-03 17:25:49.000000000 +0100
-+++ polkit-0.104.systemd/configure.ac	2012-04-02 20:56:04.906628803 +0200
-@@ -160,14 +160,15 @@
-               [enable_systemd=auto])
- if test "$enable_systemd" != "no"; then
-   PKG_CHECK_MODULES(SYSTEMD,
+diff -urN polkit-0.107.old/configure.ac polkit-0.107/configure.ac
+--- polkit-0.107.old/configure.ac	2012-10-07 21:31:48.402911710 +0200
++++ polkit-0.107/configure.ac	2012-10-07 22:27:11.041586743 +0200
+@@ -163,7 +163,7 @@
+               [enable_libsystemd_login=auto])
+ if test "$enable_libsystemd_login" != "no"; then
+   PKG_CHECK_MODULES(LIBSYSTEMD_LOGIN,
 -                    [libsystemd-login],
 +                    [libsystemd-login libsystemd-daemon],
-                     have_systemd=yes,
-                     have_systemd=no)
-   if test "$have_systemd" = "yes"; then
-+    AC_DEFINE(HAVE_SYSTEMD, 1, [Define if systemd is used for session tracking])
-     SESSION_TRACKING=systemd
-   else
-     if test "$enable_systemd" = "yes"; then
--      AC_MSG_ERROR([systemd support requested but libsystemd-login1 library not found])
-+      AC_MSG_ERROR([systemd support requested but systemd libraries not found])
-     fi
-   fi
- fi
-diff -uNr polkit-0.104/src/polkit/Makefile.am polkit-0.104.systemd/src/polkit/Makefile.am
---- polkit-0.104/src/polkit/Makefile.am	2012-01-03 16:03:47.000000000 +0100
-+++ polkit-0.104.systemd/src/polkit/Makefile.am	2012-04-02 20:55:14.940232827 +0200
+                     have_libsystemd_login=yes,
+                     have_libsystemd_login=no)
+   if test "$have_libsystemd_login" = "yes"; then
+diff -urN polkit-0.107.old/src/polkit/Makefile.am polkit-0.107/src/polkit/Makefile.am
+--- polkit-0.107.old/src/polkit/Makefile.am	2012-10-07 21:31:48.379578504 +0200
++++ polkit-0.107/src/polkit/Makefile.am	2012-10-07 21:51:14.746593099 +0200
 @@ -79,15 +79,8 @@
  	polkitimplicitauthorization.c		polkitimplicitauthorization.h		\
  	polkittemporaryauthorization.c		polkittemporaryauthorization.h		\
  	polkitpermission.c			polkitpermission.h			\
 -        $(NULL)
 -
--if HAVE_SYSTEMD
+-if HAVE_LIBSYSTEMD_LOGIN
 -libpolkit_gobject_1_la_SOURCES += \
 -	polkitunixsession-systemd.c		polkitunixsession.h
 -else
 -libpolkit_gobject_1_la_SOURCES += \
- 	polkitunixsession.c			polkitunixsession.h
+-	polkitunixsession.c			polkitunixsession.h
 -endif
-+        $(NULL)
++	polkitunixsession.c			polkitunixsession.h                     \
++	$(NULL)
  
  libpolkit_gobject_1_la_CFLAGS =                                        	\
          -D_POLKIT_COMPILATION                                  		\
-diff -uNr polkit-0.104/src/polkit/polkitunixsession.c polkit-0.104.systemd/src/polkit/polkitunixsession.c
---- polkit-0.104/src/polkit/polkitunixsession.c	2011-10-18 19:02:27.000000000 +0200
-+++ polkit-0.104.systemd/src/polkit/polkitunixsession.c	2012-04-02 20:55:14.940232827 +0200
-@@ -23,12 +23,18 @@
- #  include "config.h"
- #endif
- 
-+#include <stdlib.h>
- #include <string.h>
- #include "polkitunixsession.h"
- #include "polkitsubject.h"
+diff -urN polkit-0.107.old/src/polkit/polkitunixsession.c polkit-0.107/src/polkit/polkitunixsession.c
+--- polkit-0.107.old/src/polkit/polkitunixsession.c	2012-10-07 21:31:48.376245189 +0200
++++ polkit-0.107/src/polkit/polkitunixsession.c	2012-10-07 22:44:55.042489220 +0200
+@@ -29,6 +29,12 @@
  #include "polkiterror.h"
  #include "polkitprivate.h"
  
-+#ifdef HAVE_SYSTEMD
++#ifdef HAVE_LIBSYSTEMD_LOGIN
++#  include <stdlib.h>
 +#  include <systemd/sd-daemon.h>
 +#  include <systemd/sd-login.h>
 +#endif
@@ -61,19 +47,23 @@ diff -uNr polkit-0.104/src/polkit/polkitunixsession.c polkit-0.104.systemd/src/p
  /**
   * SECTION:polkitunixsession
   * @title: PolkitUnixSession
-@@ -364,34 +370,44 @@
+@@ -363,35 +369,49 @@
+ {
    PolkitUnixSession *session = POLKIT_UNIX_SESSION (subject);
    GDBusConnection *connection;
-   GVariant *result;
--  gboolean ret;
--
--  ret = FALSE;
-+  gboolean ret = FALSE;
+-  GVariant *result;
++  GVariant *result = NULL;
+   gboolean ret;
+ 
++  connection = NULL;
+   ret = FALSE;
  
 -  connection = g_bus_get_sync (G_BUS_TYPE_SYSTEM, cancellable, error);
 -  if (connection == NULL)
 -    goto out;
--
++#ifdef HAVE_LIBSYSTEMD_LOGIN
++  uid_t uid;
+ 
 -  result = g_dbus_connection_call_sync (connection,
 -                                        "org.freedesktop.ConsoleKit",           /* name */
 -                                        session->session_id,                    /* object path */
@@ -87,16 +77,13 @@ diff -uNr polkit-0.104/src/polkit/polkitunixsession.c polkit-0.104.systemd/src/p
 -                                        error);
 -  if (result == NULL)
 -    goto out;
-+#ifdef HAVE_SYSTEMD
-+  uid_t uid;
-+  
 +  if (sd_booted () > 0)
 +    {
 +      if (sd_session_get_uid (session->session_id, &uid) == 0)
 +        ret = TRUE;
 +    }
 +  else
-+#endif
++#endif /* HAVE_LIBSYSTEMD_LOGIN */
 +    {
 +      connection = g_bus_get_sync (G_BUS_TYPE_SYSTEM, cancellable, error);
 +      if (connection == NULL)
@@ -120,40 +107,45 @@ diff -uNr polkit-0.104/src/polkit/polkitunixsession.c polkit-0.104.systemd/src/p
 -  g_variant_unref (result);
 +      ret = TRUE;
 +      g_variant_unref (result);
- 
-- out:
--  if (connection != NULL)
--    g_object_unref (connection);
-+     out:
-+      if (connection != NULL)
-+        g_object_unref (connection);
 +    }
+ 
+  out:
+   if (connection != NULL)
+     g_object_unref (connection);
++
    return ret;
  }
  
-@@ -470,12 +486,9 @@
-                                    GError       **error)
- {
-   PolkitUnixSession *session = POLKIT_UNIX_SESSION (initable);
--  GDBusConnection *connection;
-+  GDBusConnection *connection = NULL;
+@@ -474,6 +494,7 @@
    GVariant *result;
--  gboolean ret;
--
--  connection = NULL;
--  ret = FALSE;
-+  gboolean ret = FALSE;
+   gboolean ret;
  
-   if (session->session_id != NULL)
-     {
-@@ -484,33 +497,56 @@
++  result = NULL;
+   connection = NULL;
+   ret = FALSE;
+ 
+@@ -484,28 +505,51 @@
        goto out;
      }
  
 -  connection = g_bus_get_sync (G_BUS_TYPE_SYSTEM, cancellable, error);
 -  if (connection == NULL)
 -    goto out;
-+#ifdef HAVE_SYSTEMD
+-
+-  result = g_dbus_connection_call_sync (connection,
+-                                        "org.freedesktop.ConsoleKit",           /* name */
+-                                        "/org/freedesktop/ConsoleKit/Manager",  /* object path */
+-                                        "org.freedesktop.ConsoleKit.Manager",   /* interface name */
+-                                        "GetSessionForUnixProcess",             /* method */
+-                                        g_variant_new ("(u)", session->pid),    /* parameters */
+-                                        G_VARIANT_TYPE ("(o)"),
+-                                        G_DBUS_CALL_FLAGS_NONE,
+-                                        -1,
+-                                        cancellable,
+-                                        error);
+-  if (result == NULL)
+-    goto out;
++#ifdef HAVE_LIBSYSTEMD_LOGIN
 +  char *s;
 +  
 +  if (sd_booted () > 0)
@@ -165,7 +157,7 @@ diff -uNr polkit-0.104/src/polkit/polkitunixsession.c polkit-0.104.systemd/src/p
 +          ret = TRUE;
 +          goto out;
 +        }
-+      
++
 +      g_set_error (error,
 +                   POLKIT_ERROR,
 +                   POLKIT_ERROR_FAILED,
@@ -173,8 +165,8 @@ diff -uNr polkit-0.104/src/polkit/polkitunixsession.c polkit-0.104.systemd/src/p
 +                   (gint) session->pid);
 +    }
 +  else
-+#endif
-+    { 
++#endif /* HAVE_LIBSYSTEMD_LOGIN */
++    {
 +      connection = g_bus_get_sync (G_BUS_TYPE_SYSTEM, cancellable, error);
 +      if (connection == NULL)
 +        goto out;
@@ -191,42 +183,23 @@ diff -uNr polkit-0.104/src/polkit/polkitunixsession.c polkit-0.104.systemd/src/p
 +                                            cancellable,
 +                                            error);
 +      if (result == NULL)
-+        goto out;
- 
--  result = g_dbus_connection_call_sync (connection,
--                                        "org.freedesktop.ConsoleKit",           /* name */
--                                        "/org/freedesktop/ConsoleKit/Manager",  /* object path */
--                                        "org.freedesktop.ConsoleKit.Manager",   /* interface name */
--                                        "GetSessionForUnixProcess",             /* method */
--                                        g_variant_new ("(u)", session->pid),    /* parameters */
--                                        G_VARIANT_TYPE ("(o)"),
--                                        G_DBUS_CALL_FLAGS_NONE,
--                                        -1,
--                                        cancellable,
--                                        error);
--  if (result == NULL)
--    goto out;
-+      g_variant_get (result, "(o)", &session->session_id);
-+      g_variant_unref (result);
++	goto out;
  
 -  g_variant_get (result, "(o)", &session->session_id);
 -  g_variant_unref (result);
++      g_variant_get (result, "(o)", &session->session_id);
++      g_variant_unref (result);
+ 
+-  ret = TRUE;
 +      ret = TRUE;
 +    }
  
--  ret = TRUE;
- 
   out:
    if (connection != NULL)
-     g_object_unref (connection);
--
-   return ret;
- }
- 
-diff -uNr polkit-0.104/src/polkit/polkitunixsession-systemd.c polkit-0.104.systemd/src/polkit/polkitunixsession-systemd.c
---- polkit-0.104/src/polkit/polkitunixsession-systemd.c	2012-01-03 16:03:47.000000000 +0100
-+++ polkit-0.104.systemd/src/polkit/polkitunixsession-systemd.c	1970-01-01 01:00:00.000000000 +0100
-@@ -1,481 +0,0 @@
+diff -urN polkit-0.107.old/src/polkit/polkitunixsession-systemd.c polkit-0.107/src/polkit/polkitunixsession-systemd.c
+--- polkit-0.107.old/src/polkit/polkitunixsession-systemd.c	2012-10-07 21:31:48.379578504 +0200
++++ polkit-0.107/src/polkit/polkitunixsession-systemd.c	1970-01-01 01:00:00.000000000 +0100
+@@ -1,490 +0,0 @@
 -/*
 - * Copyright (C) 2011 Red Hat, Inc.
 - *
@@ -252,6 +225,7 @@ diff -uNr polkit-0.104/src/polkit/polkitunixsession-systemd.c polkit-0.104.syste
 -#  include "config.h"
 -#endif
 -
+-#include <stdlib.h>
 -#include <string.h>
 -#include "polkitunixsession.h"
 -#include "polkitsubject.h"
@@ -589,17 +563,15 @@ diff -uNr polkit-0.104/src/polkit/polkitunixsession-systemd.c polkit-0.104.syste
 -
 -static gboolean
 -polkit_unix_session_exists_sync (PolkitSubject   *subject,
--                                    GCancellable    *cancellable,
--                                    GError         **error)
+-                                 GCancellable    *cancellable,
+-                                 GError         **error)
 -{
 -  PolkitUnixSession *session = POLKIT_UNIX_SESSION (subject);
--  gboolean ret;
+-  gboolean ret = FALSE;
 -  uid_t uid;
 -
--  ret = FALSE;
--
--  if (!sd_session_get_uid (session->session_id, &uid))
--    ret = FALSE;
+-  if (sd_session_get_uid (session->session_id, &uid) == 0)
+-    ret = TRUE;
 -
 -  return ret;
 -}
@@ -679,9 +651,8 @@ diff -uNr polkit-0.104/src/polkit/polkitunixsession-systemd.c polkit-0.104.syste
 -                                   GError       **error)
 -{
 -  PolkitUnixSession *session = POLKIT_UNIX_SESSION (initable);
--  gboolean ret;
--
--  ret = FALSE;
+-  gboolean ret = FALSE;
+-  char *s;
 -
 -  if (session->session_id != NULL)
 -    {
@@ -690,8 +661,19 @@ diff -uNr polkit-0.104/src/polkit/polkitunixsession-systemd.c polkit-0.104.syste
 -      goto out;
 -    }
 -
--  if (!sd_pid_get_session (session->pid, &session->session_id))
--    ret = TRUE;
+-  if (sd_pid_get_session (session->pid, &s) == 0)
+-    {
+-      session->session_id = g_strdup (s);
+-      free (s);
+-      ret = TRUE;
+-      goto out;
+-    }
+-
+-  g_set_error (error,
+-               POLKIT_ERROR,
+-               POLKIT_ERROR_FAILED,
+-               "No session for pid %d",
+-               (gint) session->pid);
 -
 -out:
 -  return ret;
@@ -708,38 +690,68 @@ diff -uNr polkit-0.104/src/polkit/polkitunixsession-systemd.c polkit-0.104.syste
 -{
 -  /* use default implementation to run GInitable code in a thread */
 -}
-diff -uNr polkit-0.104/src/polkitbackend/Makefile.am polkit-0.104.systemd/src/polkitbackend/Makefile.am
---- polkit-0.104/src/polkitbackend/Makefile.am	2012-01-03 16:03:47.000000000 +0100
-+++ polkit-0.104.systemd/src/polkitbackend/Makefile.am	2012-04-02 20:55:14.943566142 +0200
-@@ -41,15 +41,8 @@
+diff -urN polkit-0.107.old/src/polkitbackend/Makefile.am polkit-0.107/src/polkitbackend/Makefile.am
+--- polkit-0.107.old/src/polkitbackend/Makefile.am	2012-10-07 21:31:48.382911819 +0200
++++ polkit-0.107/src/polkitbackend/Makefile.am	2012-10-07 21:53:38.455814545 +0200
+@@ -36,15 +36,8 @@
+ 	polkitbackendactionpool.h		polkitbackendactionpool.c		\
  	polkitbackendconfigsource.h		polkitbackendconfigsource.c		\
  	polkitbackendactionlookup.h		polkitbackendactionlookup.c		\
- 	polkitbackendlocalauthorizationstore.h	polkitbackendlocalauthorizationstore.c	\
 -        $(NULL)
 -
--if HAVE_SYSTEMD
+-if HAVE_LIBSYSTEMD_LOGIN
 -libpolkit_backend_1_la_SOURCES += \
 -	polkitbackendsessionmonitor.h		polkitbackendsessionmonitor-systemd.c
 -else
 -libpolkit_backend_1_la_SOURCES += \
- 	polkitbackendsessionmonitor.h		polkitbackendsessionmonitor.c
+-	polkitbackendsessionmonitor.h		polkitbackendsessionmonitor.c
 -endif
-+        $(NULL)
++	polkitbackendsessionmonitor.h		polkitbackendsessionmonitor.c           \
++	$(NULL)
  
  libpolkit_backend_1_la_CFLAGS =                                        	\
          -D_POLKIT_COMPILATION                                  		\
-diff -uNr polkit-0.104/src/polkitbackend/polkitbackendsessionmonitor.c polkit-0.104.systemd/src/polkitbackend/polkitbackendsessionmonitor.c
---- polkit-0.104/src/polkitbackend/polkitbackendsessionmonitor.c	2011-10-18 19:02:27.000000000 +0200
-+++ polkit-0.104.systemd/src/polkitbackend/polkitbackendsessionmonitor.c	2012-04-02 20:55:14.943566142 +0200
+diff -urN polkit-0.107.old/src/polkitbackend/polkitbackendjsauthority.c polkit-0.107/src/polkitbackend/polkitbackendjsauthority.c
+--- polkit-0.107.old/src/polkitbackend/polkitbackendjsauthority.c	2012-10-07 21:31:48.382911819 +0200
++++ polkit-0.107/src/polkitbackend/polkitbackendjsauthority.c	2012-10-07 21:52:58.786029455 +0200
+@@ -35,6 +35,7 @@
+ #include <polkit/polkitprivate.h>
+ 
+ #ifdef HAVE_LIBSYSTEMD_LOGIN
++#include <systemd/sd-daemon.h>
+ #include <systemd/sd-login.h>
+ #endif /* HAVE_LIBSYSTEMD_LOGIN */
+ 
+@@ -731,11 +732,14 @@
+     }
+ 
+ #ifdef HAVE_LIBSYSTEMD_LOGIN
+-  if (sd_pid_get_session (pid, &session_str) == 0)
++  if (sd_booted () > 0)
+     {
+-      if (sd_session_get_seat (session_str, &seat_str) == 0)
++      if (sd_pid_get_session (pid, &session_str) == 0)
+         {
+-          /* do nothing */
++          if (sd_session_get_seat (session_str, &seat_str) == 0)
++            {
++              /* do nothing */
++            }
+         }
+     }
+ #endif /* HAVE_LIBSYSTEMD_LOGIN */
+diff -urN polkit-0.107.old/src/polkitbackend/polkitbackendsessionmonitor.c polkit-0.107/src/polkitbackend/polkitbackendsessionmonitor.c
+--- polkit-0.107.old/src/polkitbackend/polkitbackendsessionmonitor.c	2012-10-07 21:31:48.379578504 +0200
++++ polkit-0.107/src/polkitbackend/polkitbackendsessionmonitor.c	2012-10-07 22:25:54.305335789 +0200
 @@ -26,6 +26,12 @@
  #include <string.h>
  #include <glib/gstdio.h>
  
-+#ifdef HAVE_SYSTEMD
++#ifdef HAVE_LIBSYSTEMD_LOGIN
++#  include <stdlib.h>
 +#  include <systemd/sd-daemon.h>
 +#  include <systemd/sd-login.h>
-+#  include <stdlib.h>
-+#endif
++#endif /* HAVE_LIBSYSTEMD_LOGIN */
 +
  #include <polkit/polkit.h>
  #include "polkitbackendsessionmonitor.h"
@@ -748,7 +760,7 @@ diff -uNr polkit-0.104/src/polkitbackend/polkitbackendsessionmonitor.c polkit-0.
   * The #PolkitBackendSessionMonitor class is a utility class to track and monitor sessions.
   */
  
-+#ifdef HAVE_SYSTEMD
++#ifdef HAVE_LIBSYSTEMD_LOGIN
 +typedef struct
 +{
 +  GSource source;
@@ -828,7 +840,7 @@ diff -uNr polkit-0.104/src/polkitbackend/polkitbackendsessionmonitor.c polkit-0.
 +
 +  return source;
 +}
-+#endif /* HAVE_SYSTEMD */
++#endif /* HAVE_LIBSYSTEMD_LOGIN */
 +
  struct _PolkitBackendSessionMonitor
  {
@@ -837,18 +849,18 @@ diff -uNr polkit-0.104/src/polkitbackend/polkitbackendsessionmonitor.c polkit-0.
    GKeyFile *database;
    GFileMonitor *database_monitor;
    time_t database_mtime;
-+  
-+#ifdef HAVE_SYSTEMD
++
++#ifdef HAVE_LIBSYSTEMD_LOGIN
 +  GSource *sd_source;
-+#endif
++#endif /* HAVE_LIBSYSTEMD_LOGIN */
  };
  
  struct _PolkitBackendSessionMonitorClass
-@@ -162,6 +254,18 @@
-   g_signal_emit (monitor, signals[CHANGED_SIGNAL], 0);
- }
+@@ -70,6 +162,18 @@
  
-+#ifdef HAVE_SYSTEMD
+ /* ---------------------------------------------------------------------------------------------------- */
+ 
++#ifdef HAVE_LIBSYSTEMD_LOGIN
 +static gboolean
 +sessions_changed (gpointer user_data)
 +{
@@ -858,64 +870,62 @@ diff -uNr polkit-0.104/src/polkitbackend/polkitbackendsessionmonitor.c polkit-0.
 +
 +  return TRUE;
 +}
-+#endif
++#endif /* HAVE_LIBSYSTEMD_LOGIN */
 +
- static void
- polkit_backend_session_monitor_init (PolkitBackendSessionMonitor *monitor)
- {
+ static gboolean
+ reload_database (PolkitBackendSessionMonitor  *monitor,
+                  GError                      **error)
 @@ -176,31 +280,47 @@
        g_error_free (error);
      }
  
 -  error = NULL;
 -  if (!ensure_database (monitor, &error))
--    {
++#ifdef HAVE_LIBSYSTEMD_LOGIN
++  monitor->sd_source = NULL;
++
++  if (sd_booted () > 0)
+     {
 -      g_printerr ("Error loading " CKDB_PATH ": %s", error->message);
 -      g_error_free (error);
--    }
-+#ifdef HAVE_SYSTEMD
-+  monitor->sd_source = NULL;
-+  
-+  if (sd_booted () > 0)
-+    {
 +      monitor->sd_source = sd_source_new ();
 +      g_source_set_callback (monitor->sd_source, sessions_changed, monitor, NULL);
 +      g_source_attach (monitor->sd_source, NULL);
- 
--  error = NULL;
--  file = g_file_new_for_path (CKDB_PATH);
--  monitor->database_monitor = g_file_monitor_file (file,
--                                                   G_FILE_MONITOR_NONE,
--                                                   NULL,
--                                                   &error);
--  g_object_unref (file);
--  if (monitor->database_monitor == NULL)
--    {
--      g_printerr ("Error monitoring " CKDB_PATH ": %s", error->message);
--      g_error_free (error);
-+      monitor->database = NULL;
++
 +      monitor->database_monitor = NULL;
++      monitor->database = NULL;
      }
-   else
-+#endif
-     {
--      g_signal_connect (monitor->database_monitor,
--                        "changed",
--                        G_CALLBACK (on_file_monitor_changed),
--                        monitor);
++  else
++#endif /* HAVE_LIBSYSTEMD_LOGIN */
++    {
 +      error = NULL;
 +      if (!ensure_database (monitor, &error))
 +        {
 +          g_printerr ("Error loading " CKDB_PATH ": %s", error->message);
 +          g_error_free (error);
 +        }
-+
+ 
+-  error = NULL;
+-  file = g_file_new_for_path (CKDB_PATH);
+-  monitor->database_monitor = g_file_monitor_file (file,
 +      error = NULL;
 +      file = g_file_new_for_path (CKDB_PATH);
 +      monitor->database_monitor = g_file_monitor_file (file,
-+                                                       G_FILE_MONITOR_NONE,
-+                                                       NULL,
-+                                                       &error);
+                                                    G_FILE_MONITOR_NONE,
+                                                    NULL,
+                                                    &error);
+-  g_object_unref (file);
+-  if (monitor->database_monitor == NULL)
+-    {
+-      g_printerr ("Error monitoring " CKDB_PATH ": %s", error->message);
+-      g_error_free (error);
+-    }
+-  else
+-    {
+-      g_signal_connect (monitor->database_monitor,
+-                        "changed",
+-                        G_CALLBACK (on_file_monitor_changed),
+-                        monitor);
 +      g_object_unref (file);
 +      if (monitor->database_monitor == NULL)
 +        {
@@ -932,27 +942,25 @@ diff -uNr polkit-0.104/src/polkitbackend/polkitbackendsessionmonitor.c polkit-0.
      }
  }
  
-@@ -212,6 +332,14 @@
-   if (monitor->system_bus != NULL)
-     g_object_unref (monitor->system_bus);
+@@ -218,6 +338,12 @@
+   if (monitor->database != NULL)
+     g_key_file_free (monitor->database);
  
-+#ifdef HAVE_SYSTEMD
 +  if (monitor->sd_source != NULL)
 +    {
 +      g_source_destroy (monitor->sd_source);
 +      g_source_unref (monitor->sd_source);
 +    }
-+#endif
 +
-   if (monitor->database_monitor != NULL)
-     g_object_unref (monitor->database_monitor);
- 
-@@ -328,22 +456,38 @@
+   if (G_OBJECT_CLASS (polkit_backend_session_monitor_parent_class)->finalize != NULL)
+     G_OBJECT_CLASS (polkit_backend_session_monitor_parent_class)->finalize (object);
+ }
+@@ -328,22 +454,38 @@
      }
    else if (POLKIT_IS_UNIX_SESSION (subject))
      {
 -      if (!ensure_database (monitor, error))
-+#ifdef HAVE_SYSTEMD
++#ifdef HAVE_LIBSYSTEMD_LOGIN
 +      if (monitor->sd_source != NULL)
          {
 -          g_prefix_error (error, "Error getting user for session: Error ensuring CK database at " CKDB_PATH ": ");
@@ -960,9 +968,9 @@ diff -uNr polkit-0.104/src/polkitbackend/polkitbackendsessionmonitor.c polkit-0.
 +          if (sd_session_get_uid (polkit_unix_session_get_session_id (POLKIT_UNIX_SESSION (subject)), &uid) < 0)
 +            {
 +              g_set_error (error,
-+                           POLKIT_ERROR,
-+                           POLKIT_ERROR_FAILED,
-+                           "Error getting uid for session");
++                          POLKIT_ERROR,
++                          POLKIT_ERROR_FAILED,
++                          "Error getting uid for session");
 +              goto out;
 +            }
          }
@@ -972,7 +980,7 @@ diff -uNr polkit-0.104/src/polkitbackend/polkitbackendsessionmonitor.c polkit-0.
 -      uid = g_key_file_get_integer (monitor->database, group, "uid", &local_error);
 -      if (local_error != NULL)
 +      else
-+#endif
++#endif /* HAVE_LIBSYSTEMD_LOGIN */
          {
 -          g_propagate_prefixed_error (error, local_error, "Error getting uid using " CKDB_PATH ": ");
 +          if (!ensure_database (monitor, error))
@@ -997,7 +1005,7 @@ diff -uNr polkit-0.104/src/polkitbackend/polkitbackendsessionmonitor.c polkit-0.
  
        ret = polkit_unix_user_new (uid);
      }
-@@ -373,29 +517,46 @@
+@@ -373,29 +515,46 @@
  
    if (POLKIT_IS_UNIX_PROCESS (subject))
      {
@@ -1019,7 +1027,7 @@ diff -uNr polkit-0.104/src/polkitbackend/polkitbackendsessionmonitor.c polkit-0.
 -      g_variant_get (result, "(&o)", &session_id);
 -      session = polkit_unix_session_new (session_id);
 -      g_variant_unref (result);
-+#ifdef HAVE_SYSTEMD
++#ifdef HAVE_LIBSYSTEMD_LOGIN
 +      if (monitor->sd_source != NULL)
 +        {
 +          gchar *session_id;
@@ -1033,7 +1041,7 @@ diff -uNr polkit-0.104/src/polkitbackend/polkitbackendsessionmonitor.c polkit-0.
 +          free (session_id);
 +        }
 +      else
-+#endif
++#endif /* HAVE_LIBSYSTEMD_LOGIN */
 +        {
 +          const gchar *session_id;
 +          GVariant *result;
@@ -1063,7 +1071,7 @@ diff -uNr polkit-0.104/src/polkitbackend/polkitbackendsessionmonitor.c polkit-0.
        GVariant *result;
  
        result = g_dbus_connection_call_sync (monitor->system_bus,
-@@ -414,22 +575,35 @@
+@@ -414,22 +573,35 @@
        g_variant_get (result, "(u)", &pid);
        g_variant_unref (result);
  
@@ -1083,7 +1091,7 @@ diff -uNr polkit-0.104/src/polkitbackend/polkitbackendsessionmonitor.c polkit-0.
 -      g_variant_get (result, "(&o)", &session_id);
 -      session = polkit_unix_session_new (session_id);
 -      g_variant_unref (result);
-+#ifdef HAVE_SYSTEMD
++#ifdef HAVE_LIBSYSTEMD_LOGIN
 +      if (monitor->sd_source != NULL)
 +        {
 +          if (sd_pid_get_session (pid, &session_id) < 0)
@@ -1093,7 +1101,7 @@ diff -uNr polkit-0.104/src/polkitbackend/polkitbackendsessionmonitor.c polkit-0.
 +          free (session_id);
 +        }
 +      else
-+#endif
++#endif /* HAVE_LIBSYSTEMD_LOGIN */
 +        {
 +          result = g_dbus_connection_call_sync (monitor->system_bus,
 +                                                "org.freedesktop.ConsoleKit",
@@ -1115,12 +1123,12 @@ diff -uNr polkit-0.104/src/polkitbackend/polkitbackendsessionmonitor.c polkit-0.
      }
    else
      {
-@@ -490,7 +664,22 @@
+@@ -490,7 +662,22 @@
  polkit_backend_session_monitor_is_session_local  (PolkitBackendSessionMonitor *monitor,
                                                    PolkitSubject               *session)
  {
 -  return get_boolean (monitor, session, "is_local");
-+#ifdef HAVE_SYSTEMD
++#ifdef HAVE_LIBSYSTEMD_LOGIN
 +  if (monitor->sd_source != NULL)
 +    {
 +      char *seat;
@@ -1134,27 +1142,27 @@ diff -uNr polkit-0.104/src/polkitbackend/polkitbackendsessionmonitor.c polkit-0.
 +      return FALSE;
 +    }
 +  else
-+#endif
++#endif /* HAVE_LIBSYSTEMD_LOGIN */
 +    return get_boolean (monitor, session, "is_local");
  }
  
  
-@@ -498,6 +687,11 @@
+@@ -498,6 +685,11 @@
  polkit_backend_session_monitor_is_session_active (PolkitBackendSessionMonitor *monitor,
                                                    PolkitSubject               *session)
  {
 -  return get_boolean (monitor, session, "is_active");
-+#ifdef HAVE_SYSTEMD
++#ifdef HAVE_LIBSYSTEMD_LOGIN
 +  if (monitor->sd_source != NULL)
 +    return sd_session_is_active (polkit_unix_session_get_session_id (POLKIT_UNIX_SESSION (session)));
 +  else
-+#endif
++#endif /* HAVE_LIBSYSTEMD_LOGIN */
 +    return get_boolean (monitor, session, "is_active");
  }
  
-diff -uNr polkit-0.104/src/polkitbackend/polkitbackendsessionmonitor-systemd.c polkit-0.104.systemd/src/polkitbackend/polkitbackendsessionmonitor-systemd.c
---- polkit-0.104/src/polkitbackend/polkitbackendsessionmonitor-systemd.c	2012-01-03 16:03:47.000000000 +0100
-+++ polkit-0.104.systemd/src/polkitbackend/polkitbackendsessionmonitor-systemd.c	1970-01-01 01:00:00.000000000 +0100
+diff -urN polkit-0.107.old/src/polkitbackend/polkitbackendsessionmonitor-systemd.c polkit-0.107/src/polkitbackend/polkitbackendsessionmonitor-systemd.c
+--- polkit-0.107.old/src/polkitbackend/polkitbackendsessionmonitor-systemd.c	2012-10-07 21:31:48.382911819 +0200
++++ polkit-0.107/src/polkitbackend/polkitbackendsessionmonitor-systemd.c	1970-01-01 01:00:00.000000000 +0100
 @@ -1,414 +0,0 @@
 -/*
 - * Copyright (C) 2011 Red Hat, Inc.
