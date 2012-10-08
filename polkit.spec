@@ -147,11 +147,13 @@ rm -rf $RPM_BUILD_ROOT
 %groupadd -g 283 polkitd
 %useradd -u 283 -s /bin/false -c "polkitd pseudo user" -g polkitd polkitd
 
+%if %{with systemd}
 %post
-%{?with_systemd:%systemd_post polkit.service}
+%systemd_post polkit.service
 
 %preun
-%{?with_systemd:%systemd_preun polkit.service}
+%systemd_preun polkit.service
+%endif
 
 %postun
 if [ "$1" = "0" ]; then
