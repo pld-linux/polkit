@@ -128,7 +128,8 @@ Statyczne biblioteki PolicyKit.
 	--with-pam-include=system-auth \
 	--with-pam-module-dir=/%{_lib}/security \
 	--with-polkitd-user=polkitd
-%{__make}
+
+%{__make} -j1
 
 %install
 rm -rf $RPM_BUILD_ROOT
