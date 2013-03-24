@@ -7,7 +7,7 @@ Summary:	A framework for defining policy for system-wide components
 Summary(pl.UTF-8):	Szkielet do definiowania polityki dla komponentów systemowych
 Name:		polkit
 Version:	0.110
-Release:	2
+Release:	3
 License:	LGPL v2+
 Group:		Libraries
 Source0:	http://www.freedesktop.org/software/polkit/releases/%{name}-%{version}.tar.gz
@@ -149,6 +149,7 @@ rm -rf $RPM_BUILD_ROOT
 %pre
 %groupadd -g 283 polkitd
 %useradd -u 283 -s /bin/false -c "polkitd pseudo user" -g polkitd polkitd
+%addusertogroup polkitd proc
 
 %postun
 if [ "$1" = "0" ]; then
