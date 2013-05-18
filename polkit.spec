@@ -6,14 +6,13 @@
 Summary:	A framework for defining policy for system-wide components
 Summary(pl.UTF-8):	Szkielet do definiowania polityki dla komponentów systemowych
 Name:		polkit
-Version:	0.110
-Release:	4
+Version:	0.111
+Release:	1
 License:	LGPL v2+
 Group:		Libraries
 Source0:	http://www.freedesktop.org/software/polkit/releases/%{name}-%{version}.tar.gz
-# Source0-md5:	06e0d3b72e566ac277fc35c8206d2a28
+# Source0-md5:	81b116edf986d8e13502929a171f4e0d
 Patch0:		systemd-fallback.patch
-Patch1:		%{name}-am.patch
 URL:		http://www.freedesktop.org/wiki/Software/polkit
 BuildRequires:	autoconf >= 2.60
 BuildRequires:	automake >= 1:1.7
@@ -113,7 +112,6 @@ Statyczne biblioteki PolicyKit.
 %prep
 %setup -q
 %{?with_systemd:%patch0 -p1}
-%patch1 -p1
 
 %build
 %{?with_apidocs:%{__gtkdocize}}
@@ -126,7 +124,7 @@ Statyczne biblioteki PolicyKit.
 %configure \
 	%{__enable_disable apidocs gtk-doc} \
 	--disable-silent-rules \
-	%{__enable_disable systemd systemd} \
+	%{__enable_disable systemd libsystemd-login} \
 	--with-html-dir=%{_gtkdocdir} \
 	--with-pam-include=system-auth \
 	--with-pam-module-dir=/%{_lib}/security \
