@@ -39,7 +39,6 @@ Requires:	%{name}-libs = %{version}-%{release}
 Requires:	ConsoleKit >= 0.4.1
 %else
 Requires:	systemd-units >= 38
-Suggests:	ConsoleKit >= 0.4.1
 %endif
 Requires:	dbus >= 1.1.2-5
 Obsoletes:	PolicyKit
