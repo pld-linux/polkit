@@ -22,7 +22,6 @@ BuildRequires:	docbook-style-xsl
 BuildRequires:	expat-devel >= 1:1.95.8
 BuildRequires:	gettext-tools
 BuildRequires:	glib2-devel >= 1:2.32.0
-BuildRequires:	glibc-misc
 BuildRequires:	gobject-introspection-devel >= 0.6.2
 %{?with_apidocs:BuildRequires:	gtk-doc >= 1.3}
 BuildRequires:	gtk-doc-automake >= 1.3
