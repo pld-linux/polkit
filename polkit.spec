@@ -6,12 +6,12 @@
 Summary:	A framework for defining policy for system-wide components
 Summary(pl.UTF-8):	Szkielet do definiowania polityki dla komponentów systemowych
 Name:		polkit
-Version:	0.112
-Release:	3
+Version:	0.113
+Release:	1
 License:	LGPL v2+
 Group:		Libraries
 Source0:	http://www.freedesktop.org/software/polkit/releases/%{name}-%{version}.tar.gz
-# Source0-md5:	b0f2fa00a55f47c6a5d88e9b73f80127
+# Source0-md5:	4b77776c9e4f897dcfe03b2c34198edf
 Patch0:		systemd-fallback.patch
 Patch1:		js187.patch
 URL:		http://www.freedesktop.org/wiki/Software/polkit
