@@ -1,5 +1,6 @@
---- polkit-0.113/configure.ac.orig	2015-07-03 21:22:54.764174841 +0200
-+++ polkit-0.113/configure.ac	2015-07-03 22:21:19.010694450 +0200
+diff -ruN polkit-0.113.orig/configure.ac polkit-0.113/configure.ac
+--- polkit-0.113.orig/configure.ac	2015-06-19 22:31:02.000000000 +0200
++++ polkit-0.113/configure.ac	2015-09-26 23:40:21.669982142 +0200
 @@ -200,7 +200,7 @@
      [have_libsystemd=yes],
      dnl if libsystemd is not available, fall back to the older libsystemd-login
@@ -9,8 +10,9 @@
        [
          have_libsystemd=yes
          LIBSYSTEMD_CFLAGS="$LIBSYSTEMD_LOGIN_CFLAGS"
---- polkit-0.113/src/polkit/Makefile.am.orig	2015-07-03 21:22:54.764174841 +0200
-+++ polkit-0.113/src/polkit/Makefile.am	2015-07-03 22:31:00.080670064 +0200
+diff -ruN polkit-0.113.orig/src/polkit/Makefile.am polkit-0.113/src/polkit/Makefile.am
+--- polkit-0.113.orig/src/polkit/Makefile.am	2015-06-19 22:31:02.000000000 +0200
++++ polkit-0.113/src/polkit/Makefile.am	2015-09-26 23:40:21.669982142 +0200
 @@ -79,15 +79,7 @@
  	polkitimplicitauthorization.c		polkitimplicitauthorization.h		\
  	polkittemporaryauthorization.c		polkittemporaryauthorization.h		\
@@ -27,174 +29,9 @@
  
  libpolkit_gobject_1_la_CFLAGS =                                        	\
          -D_POLKIT_COMPILATION                                  		\
-diff -urN polkit-0.107.old/src/polkit/polkitunixsession.c polkit-0.107/src/polkit/polkitunixsession.c
---- polkit-0.107.old/src/polkit/polkitunixsession.c	2012-10-07 21:31:48.376245189 +0200
-+++ polkit-0.107/src/polkit/polkitunixsession.c	2012-10-07 22:44:55.042489220 +0200
-@@ -29,6 +29,12 @@
- #include "polkiterror.h"
- #include "polkitprivate.h"
- 
-+#ifdef HAVE_LIBSYSTEMD
-+#  include <stdlib.h>
-+#  include <systemd/sd-daemon.h>
-+#  include <systemd/sd-login.h>
-+#endif
-+
- /**
-  * SECTION:polkitunixsession
-  * @title: PolkitUnixSession
-@@ -363,35 +369,49 @@
- {
-   PolkitUnixSession *session = POLKIT_UNIX_SESSION (subject);
-   GDBusConnection *connection;
--  GVariant *result;
-+  GVariant *result = NULL;
-   gboolean ret;
- 
-+  connection = NULL;
-   ret = FALSE;
- 
--  connection = g_bus_get_sync (G_BUS_TYPE_SYSTEM, cancellable, error);
--  if (connection == NULL)
--    goto out;
-+#ifdef HAVE_LIBSYSTEMD
-+  uid_t uid;
- 
--  result = g_dbus_connection_call_sync (connection,
--                                        "org.freedesktop.ConsoleKit",           /* name */
--                                        session->session_id,                    /* object path */
--                                        "org.freedesktop.ConsoleKit.Session",   /* interface name */
--                                        "GetUser",                              /* method */
--                                        NULL, /* parameters */
--                                        G_VARIANT_TYPE ("(u)"),
--                                        G_DBUS_CALL_FLAGS_NONE,
--                                        -1,
--                                        cancellable,
--                                        error);
--  if (result == NULL)
--    goto out;
-+  if (sd_booted () > 0)
-+    {
-+      if (sd_session_get_uid (session->session_id, &uid) == 0)
-+        ret = TRUE;
-+    }
-+  else
-+#endif /* HAVE_LIBSYSTEMD */
-+    {
-+      connection = g_bus_get_sync (G_BUS_TYPE_SYSTEM, cancellable, error);
-+      if (connection == NULL)
-+        goto out;
-+
-+      result = g_dbus_connection_call_sync (connection,
-+                                            "org.freedesktop.ConsoleKit",           /* name */
-+                                            session->session_id,                    /* object path */
-+                                            "org.freedesktop.ConsoleKit.Session",   /* interface name */
-+                                            "GetUser",                              /* method */
-+                                            NULL, /* parameters */
-+                                            G_VARIANT_TYPE ("(u)"),
-+                                            G_DBUS_CALL_FLAGS_NONE,
-+                                            -1,
-+                                            cancellable,
-+                                            error);
-+      if (result == NULL)
-+        goto out;
- 
--  ret = TRUE;
--  g_variant_unref (result);
-+      ret = TRUE;
-+      g_variant_unref (result);
-+    }
- 
-  out:
-   if (connection != NULL)
-     g_object_unref (connection);
-+
-   return ret;
- }
- 
-@@ -474,6 +494,7 @@
-   GVariant *result;
-   gboolean ret;
- 
-+  result = NULL;
-   connection = NULL;
-   ret = FALSE;
- 
-@@ -484,28 +505,51 @@
-       goto out;
-     }
- 
--  connection = g_bus_get_sync (G_BUS_TYPE_SYSTEM, cancellable, error);
--  if (connection == NULL)
--    goto out;
--
--  result = g_dbus_connection_call_sync (connection,
--                                        "org.freedesktop.ConsoleKit",           /* name */
--                                        "/org/freedesktop/ConsoleKit/Manager",  /* object path */
--                                        "org.freedesktop.ConsoleKit.Manager",   /* interface name */
--                                        "GetSessionForUnixProcess",             /* method */
--                                        g_variant_new ("(u)", session->pid),    /* parameters */
--                                        G_VARIANT_TYPE ("(o)"),
--                                        G_DBUS_CALL_FLAGS_NONE,
--                                        -1,
--                                        cancellable,
--                                        error);
--  if (result == NULL)
--    goto out;
-+#ifdef HAVE_LIBSYSTEMD
-+  char *s;
-+  
-+  if (sd_booted () > 0)
-+    {
-+      if (sd_pid_get_session (session->pid, &s) == 0)
-+        {
-+          session->session_id = g_strdup (s);
-+          free (s);
-+          ret = TRUE;
-+          goto out;
-+        }
-+
-+      g_set_error (error,
-+                   POLKIT_ERROR,
-+                   POLKIT_ERROR_FAILED,
-+                   "No session for pid %d",
-+                   (gint) session->pid);
-+    }
-+  else
-+#endif /* HAVE_LIBSYSTEMD */
-+    {
-+      connection = g_bus_get_sync (G_BUS_TYPE_SYSTEM, cancellable, error);
-+      if (connection == NULL)
-+        goto out;
-+
-+      result = g_dbus_connection_call_sync (connection,
-+                                            "org.freedesktop.ConsoleKit",           /* name */
-+                                            "/org/freedesktop/ConsoleKit/Manager",  /* object path */
-+                                            "org.freedesktop.ConsoleKit.Manager",   /* interface name */
-+                                            "GetSessionForUnixProcess",             /* method */
-+                                            g_variant_new ("(u)", session->pid),    /* parameters */
-+                                            G_VARIANT_TYPE ("(o)"),
-+                                            G_DBUS_CALL_FLAGS_NONE,
-+                                            -1,
-+                                            cancellable,
-+                                            error);
-+      if (result == NULL)
-+	goto out;
- 
--  g_variant_get (result, "(o)", &session->session_id);
--  g_variant_unref (result);
-+      g_variant_get (result, "(o)", &session->session_id);
-+      g_variant_unref (result);
- 
--  ret = TRUE;
-+      ret = TRUE;
-+    }
- 
-  out:
-   if (connection != NULL)
-diff -urN polkit-0.107.old/src/polkit/polkitunixsession-systemd.c polkit-0.107/src/polkit/polkitunixsession-systemd.c
---- polkit-0.107.old/src/polkit/polkitunixsession-systemd.c	2012-10-07 21:31:48.379578504 +0200
-+++ polkit-0.107/src/polkit/polkitunixsession-systemd.c	1970-01-01 01:00:00.000000000 +0100
+diff -ruN polkit-0.113.orig/src/polkit/polkitunixsession-systemd.c polkit-0.113/src/polkit/polkitunixsession-systemd.c
+--- polkit-0.113.orig/src/polkit/polkitunixsession-systemd.c	2014-01-14 23:42:25.000000000 +0100
++++ polkit-0.113/src/polkit/polkitunixsession-systemd.c	1970-01-01 01:00:00.000000000 +0100
 @@ -1,490 +0,0 @@
 -/*
 - * Copyright (C) 2011 Red Hat, Inc.
@@ -686,8 +523,174 @@ diff -urN polkit-0.107.old/src/polkit/polkitunixsession-systemd.c polkit-0.107/s
 -{
 -  /* use default implementation to run GInitable code in a thread */
 -}
---- polkit-0.113/src/polkitbackend/Makefile.am.orig	2015-07-03 21:22:54.774174842 +0200
-+++ polkit-0.113/src/polkitbackend/Makefile.am	2015-07-04 17:20:31.954492615 +0200
+diff -ruN polkit-0.113.orig/src/polkit/polkitunixsession.c polkit-0.113/src/polkit/polkitunixsession.c
+--- polkit-0.113.orig/src/polkit/polkitunixsession.c	2014-01-14 23:42:25.000000000 +0100
++++ polkit-0.113/src/polkit/polkitunixsession.c	2015-09-26 23:40:21.671982135 +0200
+@@ -29,6 +29,12 @@
+ #include "polkiterror.h"
+ #include "polkitprivate.h"
+ 
++#ifdef HAVE_LIBSYSTEMD
++#  include <stdlib.h>
++#  include <systemd/sd-daemon.h>
++#  include <systemd/sd-login.h>
++#endif
++
+ /**
+  * SECTION:polkitunixsession
+  * @title: PolkitUnixSession
+@@ -363,35 +369,49 @@
+ {
+   PolkitUnixSession *session = POLKIT_UNIX_SESSION (subject);
+   GDBusConnection *connection;
+-  GVariant *result;
++  GVariant *result = NULL;
+   gboolean ret;
+ 
++  connection = NULL;
+   ret = FALSE;
+ 
+-  connection = g_bus_get_sync (G_BUS_TYPE_SYSTEM, cancellable, error);
+-  if (connection == NULL)
+-    goto out;
++#ifdef HAVE_LIBSYSTEMD
++  uid_t uid;
+ 
+-  result = g_dbus_connection_call_sync (connection,
+-                                        "org.freedesktop.ConsoleKit",           /* name */
+-                                        session->session_id,                    /* object path */
+-                                        "org.freedesktop.ConsoleKit.Session",   /* interface name */
+-                                        "GetUser",                              /* method */
+-                                        NULL, /* parameters */
+-                                        G_VARIANT_TYPE ("(u)"),
+-                                        G_DBUS_CALL_FLAGS_NONE,
+-                                        -1,
+-                                        cancellable,
+-                                        error);
+-  if (result == NULL)
+-    goto out;
++  if (sd_booted () > 0)
++    {
++      if (sd_session_get_uid (session->session_id, &uid) == 0)
++        ret = TRUE;
++    }
++  else
++#endif /* HAVE_LIBSYSTEMD */
++    {
++      connection = g_bus_get_sync (G_BUS_TYPE_SYSTEM, cancellable, error);
++      if (connection == NULL)
++        goto out;
++
++      result = g_dbus_connection_call_sync (connection,
++                                            "org.freedesktop.ConsoleKit",           /* name */
++                                            session->session_id,                    /* object path */
++                                            "org.freedesktop.ConsoleKit.Session",   /* interface name */
++                                            "GetUser",                              /* method */
++                                            NULL, /* parameters */
++                                            G_VARIANT_TYPE ("(u)"),
++                                            G_DBUS_CALL_FLAGS_NONE,
++                                            -1,
++                                            cancellable,
++                                            error);
++      if (result == NULL)
++        goto out;
+ 
+-  ret = TRUE;
+-  g_variant_unref (result);
++      ret = TRUE;
++      g_variant_unref (result);
++    }
+ 
+  out:
+   if (connection != NULL)
+     g_object_unref (connection);
++
+   return ret;
+ }
+ 
+@@ -474,6 +494,7 @@
+   GVariant *result;
+   gboolean ret;
+ 
++  result = NULL;
+   connection = NULL;
+   ret = FALSE;
+ 
+@@ -484,28 +505,51 @@
+       goto out;
+     }
+ 
+-  connection = g_bus_get_sync (G_BUS_TYPE_SYSTEM, cancellable, error);
+-  if (connection == NULL)
+-    goto out;
+-
+-  result = g_dbus_connection_call_sync (connection,
+-                                        "org.freedesktop.ConsoleKit",           /* name */
+-                                        "/org/freedesktop/ConsoleKit/Manager",  /* object path */
+-                                        "org.freedesktop.ConsoleKit.Manager",   /* interface name */
+-                                        "GetSessionForUnixProcess",             /* method */
+-                                        g_variant_new ("(u)", session->pid),    /* parameters */
+-                                        G_VARIANT_TYPE ("(o)"),
+-                                        G_DBUS_CALL_FLAGS_NONE,
+-                                        -1,
+-                                        cancellable,
+-                                        error);
+-  if (result == NULL)
+-    goto out;
++#ifdef HAVE_LIBSYSTEMD
++  char *s;
++  
++  if (sd_booted () > 0)
++    {
++      if (sd_pid_get_session (session->pid, &s) == 0)
++        {
++          session->session_id = g_strdup (s);
++          free (s);
++          ret = TRUE;
++          goto out;
++        }
++
++      g_set_error (error,
++                   POLKIT_ERROR,
++                   POLKIT_ERROR_FAILED,
++                   "No session for pid %d",
++                   (gint) session->pid);
++    }
++  else
++#endif /* HAVE_LIBSYSTEMD */
++    {
++      connection = g_bus_get_sync (G_BUS_TYPE_SYSTEM, cancellable, error);
++      if (connection == NULL)
++        goto out;
++
++      result = g_dbus_connection_call_sync (connection,
++                                            "org.freedesktop.ConsoleKit",           /* name */
++                                            "/org/freedesktop/ConsoleKit/Manager",  /* object path */
++                                            "org.freedesktop.ConsoleKit.Manager",   /* interface name */
++                                            "GetSessionForUnixProcess",             /* method */
++                                            g_variant_new ("(u)", session->pid),    /* parameters */
++                                            G_VARIANT_TYPE ("(o)"),
++                                            G_DBUS_CALL_FLAGS_NONE,
++                                            -1,
++                                            cancellable,
++                                            error);
++      if (result == NULL)
++	goto out;
+ 
+-  g_variant_get (result, "(o)", &session->session_id);
+-  g_variant_unref (result);
++      g_variant_get (result, "(o)", &session->session_id);
++      g_variant_unref (result);
+ 
+-  ret = TRUE;
++      ret = TRUE;
++    }
+ 
+  out:
+   if (connection != NULL)
+diff -ruN polkit-0.113.orig/src/polkitbackend/Makefile.am polkit-0.113/src/polkitbackend/Makefile.am
+--- polkit-0.113.orig/src/polkitbackend/Makefile.am	2015-06-19 22:31:02.000000000 +0200
++++ polkit-0.113/src/polkitbackend/Makefile.am	2015-09-26 23:40:21.674982125 +0200
 @@ -36,15 +36,7 @@
  	polkitbackendactionpool.h		polkitbackendactionpool.c		\
  	polkitbackendconfigsource.h		polkitbackendconfigsource.c		\
@@ -704,8 +707,9 @@ diff -urN polkit-0.107.old/src/polkit/polkitunixsession-systemd.c polkit-0.107/s
  
  libpolkit_backend_1_la_CFLAGS =                                        	\
          -D_POLKIT_COMPILATION                                  		\
---- polkit-0.113/src/polkitbackend/polkitbackendjsauthority.c.orig	2015-07-04 17:21:23.981157097 +0200
-+++ polkit-0.113/src/polkitbackend/polkitbackendjsauthority.c	2015-07-08 20:44:47.206141518 +0200
+diff -ruN polkit-0.113.orig/src/polkitbackend/polkitbackendjsauthority.c polkit-0.113/src/polkitbackend/polkitbackendjsauthority.c
+--- polkit-0.113.orig/src/polkitbackend/polkitbackendjsauthority.c	2015-06-19 22:39:58.000000000 +0200
++++ polkit-0.113/src/polkitbackend/polkitbackendjsauthority.c	2015-09-26 23:40:21.674982125 +0200
 @@ -36,6 +36,7 @@
  #include <polkit/polkitprivate.h>
  
@@ -714,7 +718,7 @@ diff -urN polkit-0.107.old/src/polkit/polkitunixsession-systemd.c polkit-0.107/s
  #include <systemd/sd-login.h>
  #endif /* HAVE_LIBSYSTEMD */
  
-@@ -794,6 +795,8 @@ subject_to_jsval (PolkitBackendJsAuthori
+@@ -794,6 +795,8 @@
      }
  
  #ifdef HAVE_LIBSYSTEMD
@@ -723,7 +727,7 @@ diff -urN polkit-0.107.old/src/polkit/polkitunixsession-systemd.c polkit-0.107/s
    if (sd_pid_get_session (pid, &session_str) == 0)
      {
        if (sd_session_get_seat (session_str, &seat_str) == 0)
-@@ -801,6 +804,7 @@ subject_to_jsval (PolkitBackendJsAuthori
+@@ -801,6 +804,7 @@
            /* do nothing */
          }
      }
@@ -731,476 +735,8 @@ diff -urN polkit-0.107.old/src/polkit/polkitunixsession-systemd.c polkit-0.107/s
  #endif /* HAVE_LIBSYSTEMD */
  
    g_assert (POLKIT_IS_UNIX_USER (user_for_subject));
---- polkit-0.113/src/polkitbackend/polkitbackendsessionmonitor.c.orig	2015-06-06 01:24:06.000000000 +0200
-+++ polkit-0.113/src/polkitbackend/polkitbackendsessionmonitor.c	2015-07-08 20:29:01.079514558 +0200
-@@ -26,6 +26,12 @@
- #include <string.h>
- #include <glib/gstdio.h>
- 
-+#ifdef HAVE_LIBSYSTEMD
-+#  include <stdlib.h>
-+#  include <systemd/sd-daemon.h>
-+#  include <systemd/sd-login.h>
-+#endif /* HAVE_LIBSYSTEMD */
-+
- #include <polkit/polkit.h>
- #include "polkitbackendsessionmonitor.h"
- 
-@@ -39,6 +45,88 @@
-  * The #PolkitBackendSessionMonitor class is a utility class to track and monitor sessions.
-  */
- 
-+#ifdef HAVE_LIBSYSTEMD
-+typedef struct
-+{
-+  GSource source;
-+  GPollFD pollfd;
-+  sd_login_monitor *monitor;
-+} SdSource;
-+
-+static gboolean
-+sd_source_prepare (GSource *source,
-+                   gint    *timeout)
-+{
-+  *timeout = -1;
-+  return FALSE;
-+}
-+
-+static gboolean
-+sd_source_check (GSource *source)
-+{
-+  SdSource *sd_source = (SdSource *)source;
-+
-+  return sd_source->pollfd.revents != 0;
-+}
-+
-+static gboolean
-+sd_source_dispatch (GSource     *source,
-+                    GSourceFunc  callback,
-+                    gpointer     user_data)
-+
-+{
-+  SdSource *sd_source = (SdSource *)source;
-+  gboolean ret;
-+
-+  g_warn_if_fail (callback != NULL);
-+
-+  ret = (*callback) (user_data);
-+
-+  sd_login_monitor_flush (sd_source->monitor);
-+
-+  return ret;
-+}
-+
-+static void
-+sd_source_finalize (GSource *source)
-+{
-+  SdSource *sd_source = (SdSource*)source;
-+
-+  sd_login_monitor_unref (sd_source->monitor);
-+}
-+
-+static GSourceFuncs sd_source_funcs = {
-+  sd_source_prepare,
-+  sd_source_check,
-+  sd_source_dispatch,
-+  sd_source_finalize
-+};
-+
-+static GSource *
-+sd_source_new (void)
-+{
-+  GSource *source;
-+  SdSource *sd_source;
-+  int ret;
-+
-+  source = g_source_new (&sd_source_funcs, sizeof (SdSource));
-+  sd_source = (SdSource *)source;
-+
-+  if ((ret = sd_login_monitor_new (NULL, &sd_source->monitor)) < 0)
-+    {
-+      g_printerr ("Error getting login monitor: %d", ret);
-+    }
-+  else
-+    {
-+      sd_source->pollfd.fd = sd_login_monitor_get_fd (sd_source->monitor);
-+      sd_source->pollfd.events = G_IO_IN;
-+      g_source_add_poll (source, &sd_source->pollfd);
-+    }
-+
-+  return source;
-+}
-+#endif /* HAVE_LIBSYSTEMD */
-+
- struct _PolkitBackendSessionMonitor
- {
-   GObject parent_instance;
-@@ -48,6 +136,10 @@ struct _PolkitBackendSessionMonitor
-   GKeyFile *database;
-   GFileMonitor *database_monitor;
-   time_t database_mtime;
-+
-+#ifdef HAVE_LIBSYSTEMD
-+  GSource *sd_source;
-+#endif /* HAVE_LIBSYSTEMD */
- };
- 
- struct _PolkitBackendSessionMonitorClass
-@@ -70,6 +162,18 @@ G_DEFINE_TYPE (PolkitBackendSessionMonit
- 
- /* ---------------------------------------------------------------------------------------------------- */
- 
-+#ifdef HAVE_LIBSYSTEMD
-+static gboolean
-+sessions_changed (gpointer user_data)
-+{
-+  PolkitBackendSessionMonitor *monitor = POLKIT_BACKEND_SESSION_MONITOR (user_data);
-+
-+  g_signal_emit (monitor, signals[CHANGED_SIGNAL], 0);
-+
-+  return TRUE;
-+}
-+#endif /* HAVE_LIBSYSTEMD */
-+
- static gboolean
- reload_database (PolkitBackendSessionMonitor  *monitor,
-                  GError                      **error)
-@@ -176,31 +280,47 @@ polkit_backend_session_monitor_init (Pol
-       g_error_free (error);
-     }
- 
--  error = NULL;
--  if (!ensure_database (monitor, &error))
-+#ifdef HAVE_LIBSYSTEMD
-+  monitor->sd_source = NULL;
-+
-+  if (sd_booted () > 0)
-     {
--      g_printerr ("Error loading " CKDB_PATH ": %s", error->message);
--      g_error_free (error);
-+      monitor->sd_source = sd_source_new ();
-+      g_source_set_callback (monitor->sd_source, sessions_changed, monitor, NULL);
-+      g_source_attach (monitor->sd_source, NULL);
-+
-+      monitor->database_monitor = NULL;
-+      monitor->database = NULL;
-     }
-+  else
-+#endif /* HAVE_LIBSYSTEMD */
-+    {
-+      error = NULL;
-+      if (!ensure_database (monitor, &error))
-+        {
-+          g_printerr ("Error loading " CKDB_PATH ": %s", error->message);
-+          g_error_free (error);
-+        }
- 
--  error = NULL;
--  file = g_file_new_for_path (CKDB_PATH);
--  monitor->database_monitor = g_file_monitor_file (file,
-+      error = NULL;
-+      file = g_file_new_for_path (CKDB_PATH);
-+      monitor->database_monitor = g_file_monitor_file (file,
-                                                    G_FILE_MONITOR_NONE,
-                                                    NULL,
-                                                    &error);
--  g_object_unref (file);
--  if (monitor->database_monitor == NULL)
--    {
--      g_printerr ("Error monitoring " CKDB_PATH ": %s", error->message);
--      g_error_free (error);
--    }
--  else
--    {
--      g_signal_connect (monitor->database_monitor,
--                        "changed",
--                        G_CALLBACK (on_file_monitor_changed),
--                        monitor);
-+      g_object_unref (file);
-+      if (monitor->database_monitor == NULL)
-+        {
-+          g_printerr ("Error monitoring " CKDB_PATH ": %s", error->message);
-+          g_error_free (error);
-+        }
-+      else
-+        {
-+          g_signal_connect (monitor->database_monitor,
-+                            "changed",
-+                            G_CALLBACK (on_file_monitor_changed),
-+                            monitor);
-+        }
-     }
- }
- 
-@@ -218,6 +338,12 @@ polkit_backend_session_monitor_finalize
-   if (monitor->database != NULL)
-     g_key_file_free (monitor->database);
- 
-+  if (monitor->sd_source != NULL)
-+    {
-+      g_source_destroy (monitor->sd_source);
-+      g_source_unref (monitor->sd_source);
-+    }
-+
-   if (G_OBJECT_CLASS (polkit_backend_session_monitor_parent_class)->finalize != NULL)
-     G_OBJECT_CLASS (polkit_backend_session_monitor_parent_class)->finalize (object);
- }
-@@ -310,22 +436,38 @@ polkit_backend_session_monitor_get_user_
-     }
-   else if (POLKIT_IS_UNIX_SESSION (subject))
-     {
--      if (!ensure_database (monitor, error))
-+#ifdef HAVE_LIBSYSTEMD
-+      if (monitor->sd_source != NULL)
-         {
--          g_prefix_error (error, "Error getting user for session: Error ensuring CK database at " CKDB_PATH ": ");
--          goto out;
-+          if (sd_session_get_uid (polkit_unix_session_get_session_id (POLKIT_UNIX_SESSION (subject)), &uid) < 0)
-+            {
-+              g_set_error (error,
-+                          POLKIT_ERROR,
-+                          POLKIT_ERROR_FAILED,
-+                          "Error getting uid for session");
-+              goto out;
-+            }
-         }
--
--      group = g_strdup_printf ("Session %s", polkit_unix_session_get_session_id (POLKIT_UNIX_SESSION (subject)));
--      local_error = NULL;
--      uid = g_key_file_get_integer (monitor->database, group, "uid", &local_error);
--      if (local_error != NULL)
-+      else
-+#endif /* HAVE_LIBSYSTEMD */
-         {
--          g_propagate_prefixed_error (error, local_error, "Error getting uid using " CKDB_PATH ": ");
-+          if (!ensure_database (monitor, error))
-+            {
-+              g_prefix_error (error, "Error getting user for session: Error ensuring CK database at " CKDB_PATH ": ");
-+              goto out;
-+            }
-+
-+          group = g_strdup_printf ("Session %s", polkit_unix_session_get_session_id (POLKIT_UNIX_SESSION (subject)));
-+          local_error = NULL;
-+          uid = g_key_file_get_integer (monitor->database, group, "uid", &local_error);
-+          if (local_error != NULL)
-+            {
-+              g_propagate_prefixed_error (error, local_error, "Error getting uid using " CKDB_PATH ": ");
-+              g_free (group);
-+              goto out;
-+            }
-           g_free (group);
--          goto out;
-         }
--      g_free (group);
- 
-       ret = polkit_unix_user_new (uid);
-     }
-@@ -349,35 +491,27 @@ polkit_backend_session_monitor_get_sessi
-                                                         PolkitSubject               *subject,
-                                                         GError                     **error)
- {
--  PolkitSubject *session;
--
--  session = NULL;
-+  PolkitSubject *session = NULL;
-+  pid_t pid;
- 
-   if (POLKIT_IS_UNIX_PROCESS (subject))
--    {
--      const gchar *session_id;
--      GVariant *result;
--      result = g_dbus_connection_call_sync (monitor->system_bus,
--                                            "org.freedesktop.ConsoleKit",
--                                            "/org/freedesktop/ConsoleKit/Manager",
--                                            "org.freedesktop.ConsoleKit.Manager",
--                                            "GetSessionForUnixProcess",
--                                            g_variant_new ("(u)", polkit_unix_process_get_pid (POLKIT_UNIX_PROCESS (subject))),
--                                            G_VARIANT_TYPE ("(o)"),
--                                            G_DBUS_CALL_FLAGS_NONE,
--                                            -1, /* timeout_msec */
--                                            NULL, /* GCancellable */
--                                            error);
--      if (result == NULL)
--        goto out;
--      g_variant_get (result, "(&o)", &session_id);
--      session = polkit_unix_session_new (session_id);
--      g_variant_unref (result);
-+    { /* We already have a process; now do process -> pid */
-+      pid = polkit_unix_process_get_pid (POLKIT_UNIX_PROCESS (subject));
-     }
-   else if (POLKIT_IS_SYSTEM_BUS_NAME (subject))
--    {
-+    { /* Convert bus name to process / pid */
-+#ifdef HAVE_LIBSYSTEMD
-+      if (monitor->sd_source != NULL)
-+        {
-+	  PolkitUnixProcess *process = (PolkitUnixProcess*)polkit_system_bus_name_get_process_sync (POLKIT_SYSTEM_BUS_NAME(subject), NULL, error);
-+	  if (!process)
-+	    goto out;
-+	  pid = polkit_unix_process_get_pid (process);
-+	  g_object_unref (process);
-+	} else
-+#endif
-+      {
-       guint32 pid;
--      const gchar *session_id;
-       GVariant *result;
- 
-       result = g_dbus_connection_call_sync (monitor->system_bus,
-@@ -395,23 +530,7 @@ polkit_backend_session_monitor_get_sessi
-         goto out;
-       g_variant_get (result, "(u)", &pid);
-       g_variant_unref (result);
--
--      result = g_dbus_connection_call_sync (monitor->system_bus,
--                                            "org.freedesktop.ConsoleKit",
--                                            "/org/freedesktop/ConsoleKit/Manager",
--                                            "org.freedesktop.ConsoleKit.Manager",
--                                            "GetSessionForUnixProcess",
--                                            g_variant_new ("(u)", pid),
--                                            G_VARIANT_TYPE ("(o)"),
--                                            G_DBUS_CALL_FLAGS_NONE,
--                                            -1, /* timeout_msec */
--                                            NULL, /* GCancellable */
--                                            error);
--      if (result == NULL)
--        goto out;
--      g_variant_get (result, "(&o)", &session_id);
--      session = polkit_unix_session_new (session_id);
--      g_variant_unref (result);
-+      }
-     }
-   else
-     {
-@@ -420,8 +539,57 @@ polkit_backend_session_monitor_get_sessi
-                    POLKIT_ERROR_NOT_SUPPORTED,
-                    "Cannot get user for subject of type %s",
-                    g_type_name (G_TYPE_FROM_INSTANCE (subject)));
-+      goto out;
-     }
- 
-+  /* Now do pid -> same session */
-+#ifdef HAVE_LIBSYSTEMD
-+      if (monitor->sd_source != NULL)
-+        {
-+          gchar *session_id;
-+          if (sd_pid_get_session (pid, &session_id) >= 0)
-+	  {
-+            session = polkit_unix_session_new (session_id);
-+            free (session_id);
-+            goto out;
-+	  }
-+#if HAVE_SD_UID_GET_DISPLAY
-+          uid_t uid;
-+	  /* Now do pid -> uid -> graphical session (systemd version 213)*/
-+	  if (sd_pid_get_owner_uid (pid, &uid) < 0)
-+            goto out;
-+
-+          if (sd_uid_get_display (uid, &session_id) >= 0)
-+          {
-+            session = polkit_unix_session_new (session_id);
-+            free (session_id);
-+            goto out;
-+          }
-+#endif
-+        }
-+      else
-+#endif /* HAVE_LIBSYSTEMD */
-+        {
-+          gchar *session_id;
-+          GVariant *result;
-+          result = g_dbus_connection_call_sync (monitor->system_bus,
-+                                                "org.freedesktop.ConsoleKit",
-+                                                "/org/freedesktop/ConsoleKit/Manager",
-+                                                "org.freedesktop.ConsoleKit.Manager",
-+                                                "GetSessionForUnixProcess",
-+                                                g_variant_new ("(u)", pid),
-+                                                G_VARIANT_TYPE ("(o)"),
-+                                                G_DBUS_CALL_FLAGS_NONE,
-+                                                -1, /* timeout_msec */
-+                                                NULL, /* GCancellable */
-+                                                error);
-+          if (result == NULL)
-+            goto out;
-+          g_variant_get (result, "(&o)", &session_id);
-+          session = polkit_unix_session_new (session_id);
-+          g_variant_unref (result);
-+        }
-+
-  out:
- 
-   return session;
-@@ -472,7 +639,22 @@ gboolean
- polkit_backend_session_monitor_is_session_local  (PolkitBackendSessionMonitor *monitor,
-                                                   PolkitSubject               *session)
- {
--  return get_boolean (monitor, session, "is_local");
-+#ifdef HAVE_LIBSYSTEMD
-+  if (monitor->sd_source != NULL)
-+    {
-+      char *seat;
-+
-+      if (!sd_session_get_seat (polkit_unix_session_get_session_id (POLKIT_UNIX_SESSION (session)), &seat))
-+        {
-+          free (seat);
-+          return TRUE;
-+        }
-+
-+      return FALSE;
-+    }
-+  else
-+#endif /* HAVE_LIBSYSTEMD */
-+    return get_boolean (monitor, session, "is_local");
- }
- 
- 
-@@ -480,6 +662,44 @@ gboolean
- polkit_backend_session_monitor_is_session_active (PolkitBackendSessionMonitor *monitor,
-                                                   PolkitSubject               *session)
- {
--  return get_boolean (monitor, session, "is_active");
-+#ifdef HAVE_LIBSYSTEMD
-+  if (monitor->sd_source != NULL)
-+  {
-+  const char *session_id;
-+  char *state;
-+  uid_t uid;
-+  gboolean is_active = FALSE;
-+
-+  session_id = polkit_unix_session_get_session_id (POLKIT_UNIX_SESSION (session));
-+
-+  g_debug ("Checking whether session %s is active.", session_id);
-+
-+  /* Check whether *any* of the user's current sessions are active. */
-+  if (sd_session_get_uid (session_id, &uid) < 0)
-+    goto fallback;
-+
-+  g_debug ("Session %s has UID %u.", session_id, uid);
-+
-+  if (sd_uid_get_state (uid, &state) < 0)
-+    goto fallback;
-+
-+  g_debug ("UID %u has state %s.", uid, state);
-+
-+  is_active = (g_strcmp0 (state, "active") == 0);
-+  free (state);
-+
-+  return is_active;
-+
-+fallback:
-+  /* Fall back to checking the session. This is not ideal, since the user
-+   * might have multiple sessions, and we cannot guarantee to have chosen
-+   * the active one.
-+   *
-+   * See: https://bugs.freedesktop.org/show_bug.cgi?id=76358. */
-+  return sd_session_is_active (session_id);
-+  }
-+  else
-+#endif /* HAVE_LIBSYSTEMD */
-+    return get_boolean (monitor, session, "is_active");
- }
- 
---- polkit-0.113/src/polkitbackend/polkitbackendsessionmonitor-systemd.c.orig	2015-07-04 17:22:07.104488621 +0200
+diff -ruN polkit-0.113.orig/src/polkitbackend/polkitbackendsessionmonitor-systemd.c polkit-0.113/src/polkitbackend/polkitbackendsessionmonitor-systemd.c
+--- polkit-0.113.orig/src/polkitbackend/polkitbackendsessionmonitor-systemd.c	2015-06-19 22:31:02.000000000 +0200
 +++ polkit-0.113/src/polkitbackend/polkitbackendsessionmonitor-systemd.c	1970-01-01 01:00:00.000000000 +0100
 @@ -1,425 +0,0 @@
 -/*
@@ -1628,3 +1164,473 @@ diff -urN polkit-0.107.old/src/polkit/polkitunixsession-systemd.c polkit-0.107/s
 -  return sd_session_is_active (session_id);
 -}
 -
+diff -ruN polkit-0.113.orig/src/polkitbackend/polkitbackendsessionmonitor.c polkit-0.113/src/polkitbackend/polkitbackendsessionmonitor.c
+--- polkit-0.113.orig/src/polkitbackend/polkitbackendsessionmonitor.c	2015-06-06 01:24:06.000000000 +0200
++++ polkit-0.113/src/polkitbackend/polkitbackendsessionmonitor.c	2015-09-26 23:40:39.451918791 +0200
+@@ -26,6 +26,12 @@
+ #include <string.h>
+ #include <glib/gstdio.h>
+ 
++#ifdef HAVE_LIBSYSTEMD
++#  include <stdlib.h>
++#  include <systemd/sd-daemon.h>
++#  include <systemd/sd-login.h>
++#endif /* HAVE_LIBSYSTEMD */
++
+ #include <polkit/polkit.h>
+ #include "polkitbackendsessionmonitor.h"
+ 
+@@ -39,6 +45,88 @@
+  * The #PolkitBackendSessionMonitor class is a utility class to track and monitor sessions.
+  */
+ 
++#ifdef HAVE_LIBSYSTEMD
++typedef struct
++{
++  GSource source;
++  GPollFD pollfd;
++  sd_login_monitor *monitor;
++} SdSource;
++
++static gboolean
++sd_source_prepare (GSource *source,
++                   gint    *timeout)
++{
++  *timeout = -1;
++  return FALSE;
++}
++
++static gboolean
++sd_source_check (GSource *source)
++{
++  SdSource *sd_source = (SdSource *)source;
++
++  return sd_source->pollfd.revents != 0;
++}
++
++static gboolean
++sd_source_dispatch (GSource     *source,
++                    GSourceFunc  callback,
++                    gpointer     user_data)
++
++{
++  SdSource *sd_source = (SdSource *)source;
++  gboolean ret;
++
++  g_warn_if_fail (callback != NULL);
++
++  ret = (*callback) (user_data);
++
++  sd_login_monitor_flush (sd_source->monitor);
++
++  return ret;
++}
++
++static void
++sd_source_finalize (GSource *source)
++{
++  SdSource *sd_source = (SdSource*)source;
++
++  sd_login_monitor_unref (sd_source->monitor);
++}
++
++static GSourceFuncs sd_source_funcs = {
++  sd_source_prepare,
++  sd_source_check,
++  sd_source_dispatch,
++  sd_source_finalize
++};
++
++static GSource *
++sd_source_new (void)
++{
++  GSource *source;
++  SdSource *sd_source;
++  int ret;
++
++  source = g_source_new (&sd_source_funcs, sizeof (SdSource));
++  sd_source = (SdSource *)source;
++
++  if ((ret = sd_login_monitor_new (NULL, &sd_source->monitor)) < 0)
++    {
++      g_printerr ("Error getting login monitor: %d", ret);
++    }
++  else
++    {
++      sd_source->pollfd.fd = sd_login_monitor_get_fd (sd_source->monitor);
++      sd_source->pollfd.events = G_IO_IN;
++      g_source_add_poll (source, &sd_source->pollfd);
++    }
++
++  return source;
++}
++#endif /* HAVE_LIBSYSTEMD */
++
+ struct _PolkitBackendSessionMonitor
+ {
+   GObject parent_instance;
+@@ -48,6 +136,10 @@
+   GKeyFile *database;
+   GFileMonitor *database_monitor;
+   time_t database_mtime;
++
++#ifdef HAVE_LIBSYSTEMD
++  GSource *sd_source;
++#endif /* HAVE_LIBSYSTEMD */
+ };
+ 
+ struct _PolkitBackendSessionMonitorClass
+@@ -70,6 +162,18 @@
+ 
+ /* ---------------------------------------------------------------------------------------------------- */
+ 
++#ifdef HAVE_LIBSYSTEMD
++static gboolean
++sessions_changed (gpointer user_data)
++{
++  PolkitBackendSessionMonitor *monitor = POLKIT_BACKEND_SESSION_MONITOR (user_data);
++
++  g_signal_emit (monitor, signals[CHANGED_SIGNAL], 0);
++
++  return TRUE;
++}
++#endif /* HAVE_LIBSYSTEMD */
++
+ static gboolean
+ reload_database (PolkitBackendSessionMonitor  *monitor,
+                  GError                      **error)
+@@ -176,31 +280,47 @@
+       g_error_free (error);
+     }
+ 
+-  error = NULL;
+-  if (!ensure_database (monitor, &error))
++#ifdef HAVE_LIBSYSTEMD
++  monitor->sd_source = NULL;
++
++  if (sd_booted () > 0)
+     {
+-      g_printerr ("Error loading " CKDB_PATH ": %s", error->message);
+-      g_error_free (error);
++      monitor->sd_source = sd_source_new ();
++      g_source_set_callback (monitor->sd_source, sessions_changed, monitor, NULL);
++      g_source_attach (monitor->sd_source, NULL);
++
++      monitor->database_monitor = NULL;
++      monitor->database = NULL;
+     }
++  else
++#endif /* HAVE_LIBSYSTEMD */
++    {
++      error = NULL;
++      if (!ensure_database (monitor, &error))
++        {
++          g_printerr ("Error loading " CKDB_PATH ": %s", error->message);
++          g_error_free (error);
++        }
+ 
+-  error = NULL;
+-  file = g_file_new_for_path (CKDB_PATH);
+-  monitor->database_monitor = g_file_monitor_file (file,
++      error = NULL;
++      file = g_file_new_for_path (CKDB_PATH);
++      monitor->database_monitor = g_file_monitor_file (file,
+                                                    G_FILE_MONITOR_NONE,
+                                                    NULL,
+                                                    &error);
+-  g_object_unref (file);
+-  if (monitor->database_monitor == NULL)
+-    {
+-      g_printerr ("Error monitoring " CKDB_PATH ": %s", error->message);
+-      g_error_free (error);
+-    }
+-  else
+-    {
+-      g_signal_connect (monitor->database_monitor,
+-                        "changed",
+-                        G_CALLBACK (on_file_monitor_changed),
+-                        monitor);
++      g_object_unref (file);
++      if (monitor->database_monitor == NULL)
++        {
++          g_printerr ("Error monitoring " CKDB_PATH ": %s", error->message);
++          g_error_free (error);
++        }
++      else
++        {
++          g_signal_connect (monitor->database_monitor,
++                            "changed",
++                            G_CALLBACK (on_file_monitor_changed),
++                            monitor);
++        }
+     }
+ }
+ 
+@@ -218,6 +338,12 @@
+   if (monitor->database != NULL)
+     g_key_file_free (monitor->database);
+ 
++  if (monitor->sd_source != NULL)
++    {
++      g_source_destroy (monitor->sd_source);
++      g_source_unref (monitor->sd_source);
++    }
++
+   if (G_OBJECT_CLASS (polkit_backend_session_monitor_parent_class)->finalize != NULL)
+     G_OBJECT_CLASS (polkit_backend_session_monitor_parent_class)->finalize (object);
+ }
+@@ -310,22 +436,38 @@
+     }
+   else if (POLKIT_IS_UNIX_SESSION (subject))
+     {
+-      if (!ensure_database (monitor, error))
++#ifdef HAVE_LIBSYSTEMD
++      if (monitor->sd_source != NULL)
+         {
+-          g_prefix_error (error, "Error getting user for session: Error ensuring CK database at " CKDB_PATH ": ");
+-          goto out;
++          if (sd_session_get_uid (polkit_unix_session_get_session_id (POLKIT_UNIX_SESSION (subject)), &uid) < 0)
++            {
++              g_set_error (error,
++                          POLKIT_ERROR,
++                          POLKIT_ERROR_FAILED,
++                          "Error getting uid for session");
++              goto out;
++            }
+         }
+-
+-      group = g_strdup_printf ("Session %s", polkit_unix_session_get_session_id (POLKIT_UNIX_SESSION (subject)));
+-      local_error = NULL;
+-      uid = g_key_file_get_integer (monitor->database, group, "uid", &local_error);
+-      if (local_error != NULL)
++      else
++#endif /* HAVE_LIBSYSTEMD */
+         {
+-          g_propagate_prefixed_error (error, local_error, "Error getting uid using " CKDB_PATH ": ");
++          if (!ensure_database (monitor, error))
++            {
++              g_prefix_error (error, "Error getting user for session: Error ensuring CK database at " CKDB_PATH ": ");
++              goto out;
++            }
++
++          group = g_strdup_printf ("Session %s", polkit_unix_session_get_session_id (POLKIT_UNIX_SESSION (subject)));
++          local_error = NULL;
++          uid = g_key_file_get_integer (monitor->database, group, "uid", &local_error);
++          if (local_error != NULL)
++            {
++              g_propagate_prefixed_error (error, local_error, "Error getting uid using " CKDB_PATH ": ");
++              g_free (group);
++              goto out;
++            }
+           g_free (group);
+-          goto out;
+         }
+-      g_free (group);
+ 
+       ret = polkit_unix_user_new (uid);
+     }
+@@ -349,35 +491,26 @@
+                                                         PolkitSubject               *subject,
+                                                         GError                     **error)
+ {
+-  PolkitSubject *session;
+-
+-  session = NULL;
++  PolkitSubject *session = NULL;
++  pid_t pid;
+ 
+   if (POLKIT_IS_UNIX_PROCESS (subject))
+-    {
+-      const gchar *session_id;
+-      GVariant *result;
+-      result = g_dbus_connection_call_sync (monitor->system_bus,
+-                                            "org.freedesktop.ConsoleKit",
+-                                            "/org/freedesktop/ConsoleKit/Manager",
+-                                            "org.freedesktop.ConsoleKit.Manager",
+-                                            "GetSessionForUnixProcess",
+-                                            g_variant_new ("(u)", polkit_unix_process_get_pid (POLKIT_UNIX_PROCESS (subject))),
+-                                            G_VARIANT_TYPE ("(o)"),
+-                                            G_DBUS_CALL_FLAGS_NONE,
+-                                            -1, /* timeout_msec */
+-                                            NULL, /* GCancellable */
+-                                            error);
+-      if (result == NULL)
+-        goto out;
+-      g_variant_get (result, "(&o)", &session_id);
+-      session = polkit_unix_session_new (session_id);
+-      g_variant_unref (result);
++    { /* We already have a process; now do process -> pid */
++      pid = polkit_unix_process_get_pid (POLKIT_UNIX_PROCESS (subject));
+     }
+   else if (POLKIT_IS_SYSTEM_BUS_NAME (subject))
+-    {
+-      guint32 pid;
+-      const gchar *session_id;
++    { /* Convert bus name to process / pid */
++#ifdef HAVE_LIBSYSTEMD
++      if (monitor->sd_source != NULL)
++        {
++	  PolkitUnixProcess *process = (PolkitUnixProcess*)polkit_system_bus_name_get_process_sync (POLKIT_SYSTEM_BUS_NAME(subject), NULL, error);
++	  if (!process)
++	    goto out;
++	  pid = polkit_unix_process_get_pid (process);
++	  g_object_unref (process);
++	} else
++#endif
++      {
+       GVariant *result;
+ 
+       result = g_dbus_connection_call_sync (monitor->system_bus,
+@@ -395,23 +528,7 @@
+         goto out;
+       g_variant_get (result, "(u)", &pid);
+       g_variant_unref (result);
+-
+-      result = g_dbus_connection_call_sync (monitor->system_bus,
+-                                            "org.freedesktop.ConsoleKit",
+-                                            "/org/freedesktop/ConsoleKit/Manager",
+-                                            "org.freedesktop.ConsoleKit.Manager",
+-                                            "GetSessionForUnixProcess",
+-                                            g_variant_new ("(u)", pid),
+-                                            G_VARIANT_TYPE ("(o)"),
+-                                            G_DBUS_CALL_FLAGS_NONE,
+-                                            -1, /* timeout_msec */
+-                                            NULL, /* GCancellable */
+-                                            error);
+-      if (result == NULL)
+-        goto out;
+-      g_variant_get (result, "(&o)", &session_id);
+-      session = polkit_unix_session_new (session_id);
+-      g_variant_unref (result);
++      }
+     }
+   else
+     {
+@@ -420,8 +537,57 @@
+                    POLKIT_ERROR_NOT_SUPPORTED,
+                    "Cannot get user for subject of type %s",
+                    g_type_name (G_TYPE_FROM_INSTANCE (subject)));
++      goto out;
+     }
+ 
++  /* Now do pid -> same session */
++#ifdef HAVE_LIBSYSTEMD
++      if (monitor->sd_source != NULL)
++        {
++          gchar *session_id;
++          if (sd_pid_get_session (pid, &session_id) >= 0)
++	  {
++            session = polkit_unix_session_new (session_id);
++            free (session_id);
++            goto out;
++	  }
++#if HAVE_SD_UID_GET_DISPLAY
++          uid_t uid;
++	  /* Now do pid -> uid -> graphical session (systemd version 213)*/
++	  if (sd_pid_get_owner_uid (pid, &uid) < 0)
++            goto out;
++
++          if (sd_uid_get_display (uid, &session_id) >= 0)
++          {
++            session = polkit_unix_session_new (session_id);
++            free (session_id);
++            goto out;
++          }
++#endif
++        }
++      else
++#endif /* HAVE_LIBSYSTEMD */
++        {
++          gchar *session_id;
++          GVariant *result;
++          result = g_dbus_connection_call_sync (monitor->system_bus,
++                                                "org.freedesktop.ConsoleKit",
++                                                "/org/freedesktop/ConsoleKit/Manager",
++                                                "org.freedesktop.ConsoleKit.Manager",
++                                                "GetSessionForUnixProcess",
++                                                g_variant_new ("(u)", pid),
++                                                G_VARIANT_TYPE ("(o)"),
++                                                G_DBUS_CALL_FLAGS_NONE,
++                                                -1, /* timeout_msec */
++                                                NULL, /* GCancellable */
++                                                error);
++          if (result == NULL)
++            goto out;
++          g_variant_get (result, "(&o)", &session_id);
++          session = polkit_unix_session_new (session_id);
++          g_variant_unref (result);
++        }
++
+  out:
+ 
+   return session;
+@@ -472,7 +638,22 @@
+ polkit_backend_session_monitor_is_session_local  (PolkitBackendSessionMonitor *monitor,
+                                                   PolkitSubject               *session)
+ {
+-  return get_boolean (monitor, session, "is_local");
++#ifdef HAVE_LIBSYSTEMD
++  if (monitor->sd_source != NULL)
++    {
++      char *seat;
++
++      if (!sd_session_get_seat (polkit_unix_session_get_session_id (POLKIT_UNIX_SESSION (session)), &seat))
++        {
++          free (seat);
++          return TRUE;
++        }
++
++      return FALSE;
++    }
++  else
++#endif /* HAVE_LIBSYSTEMD */
++    return get_boolean (monitor, session, "is_local");
+ }
+ 
+ 
+@@ -480,6 +661,44 @@
+ polkit_backend_session_monitor_is_session_active (PolkitBackendSessionMonitor *monitor,
+                                                   PolkitSubject               *session)
+ {
+-  return get_boolean (monitor, session, "is_active");
++#ifdef HAVE_LIBSYSTEMD
++  if (monitor->sd_source != NULL)
++  {
++  const char *session_id;
++  char *state;
++  uid_t uid;
++  gboolean is_active = FALSE;
++
++  session_id = polkit_unix_session_get_session_id (POLKIT_UNIX_SESSION (session));
++
++  g_debug ("Checking whether session %s is active.", session_id);
++
++  /* Check whether *any* of the user's current sessions are active. */
++  if (sd_session_get_uid (session_id, &uid) < 0)
++    goto fallback;
++
++  g_debug ("Session %s has UID %u.", session_id, uid);
++
++  if (sd_uid_get_state (uid, &state) < 0)
++    goto fallback;
++
++  g_debug ("UID %u has state %s.", uid, state);
++
++  is_active = (g_strcmp0 (state, "active") == 0);
++  free (state);
++
++  return is_active;
++
++fallback:
++  /* Fall back to checking the session. This is not ideal, since the user
++   * might have multiple sessions, and we cannot guarantee to have chosen
++   * the active one.
++   *
++   * See: https://bugs.freedesktop.org/show_bug.cgi?id=76358. */
++  return sd_session_is_active (session_id);
++  }
++  else
++#endif /* HAVE_LIBSYSTEMD */
++    return get_boolean (monitor, session, "is_active");
+ }
+ 
