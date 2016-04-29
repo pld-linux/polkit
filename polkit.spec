@@ -7,7 +7,7 @@ Summary:	A framework for defining policy for system-wide components
 Summary(pl.UTF-8):	Szkielet do definiowania polityki dla komponentów systemowych
 Name:		polkit
 Version:	0.113
-Release:	2
+Release:	3
 License:	LGPL v2+
 Group:		Libraries
 Source0:	http://www.freedesktop.org/software/polkit/releases/%{name}-%{version}.tar.gz
@@ -58,6 +58,9 @@ Summary(pl.UTF-8):	Dokumentacja API PolicyKit
 Group:		Documentation
 Requires:	gtk-doc-common
 Obsoletes:	PolicyKit-apidocs
+%if "%{_rpmversion}" >= "5"
+BuildArch:	noarch
+%endif
 
 %description apidocs
 PolicyKit API documentation.
