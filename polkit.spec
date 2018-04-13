@@ -1,47 +1,58 @@
+# NOTE: elogind also supported (--disable-libsystemd-login --enable-libelogind)
 #
 # Conditional build:
 %bcond_without	apidocs		# build without apidocs
-%bcond_without	systemd		# use systemd for session tracking instead of ConsoleKit (fallback to ConsoleKit on runtime)
+%bcond_without	consolekit	# ConsoleKit fallback
+%bcond_without	systemd		# use systemd-login for session tracking (fallback to ConsoleKit on runtime)
+%bcond_with	elogind		# use elogind instead of systemd-login
 
+%if %{with elogind}
+%undefine	with_systemd
+%endif
 Summary:	A framework for defining policy for system-wide components
 Summary(pl.UTF-8):	Szkielet do definiowania polityki dla komponentów systemowych
 Name:		polkit
-Version:	0.113
-Release:	4
+Version:	0.114
+Release:	1
 License:	LGPL v2+
 Group:		Libraries
-Source0:	http://www.freedesktop.org/software/polkit/releases/%{name}-%{version}.tar.gz
-# Source0-md5:	4b77776c9e4f897dcfe03b2c34198edf
+Source0:	https://www.freedesktop.org/software/polkit/releases/%{name}-%{version}.tar.gz
+# Source0-md5:	93ff41874e7df8c62ed9e41893817f04
 Patch0:		systemd-fallback.patch
-Patch1:		js187.patch
-Patch2:		%{name}-itstool.patch
-URL:		http://www.freedesktop.org/wiki/Software/polkit
+Patch1:		%{name}-format.patch
+URL:		https://www.freedesktop.org/wiki/Software/polkit
 BuildRequires:	autoconf >= 2.60
 BuildRequires:	automake >= 1:1.7
 BuildRequires:	docbook-dtd412-xml
 BuildRequires:	docbook-style-xsl
+%{?with_elogind:BuildRequires:	elogind-devel}
 BuildRequires:	expat-devel >= 1:1.95.8
 BuildRequires:	gettext-tools
 BuildRequires:	glib2-devel >= 1:2.32.0
+%if %(locale -a | grep -q '^C\.utf8$'; echo $?)
+BuildRequires:	glibc-localedb-all
+%endif
 BuildRequires:	gobject-introspection-devel >= 0.6.2
 %{?with_apidocs:BuildRequires:	gtk-doc >= 1.3}
 BuildRequires:	gtk-doc-automake >= 1.3
 BuildRequires:	intltool >= 0.40.0
-BuildRequires:	js187-devel
-BuildRequires:	libtool
+BuildRequires:	libstdc++-devel >= 6:4.7
+BuildRequires:	libtool >= 2:1.5
 BuildRequires:	libxslt-progs
+BuildRequires:	mozjs52-devel
 BuildRequires:	pam-devel >= 0.80
 BuildRequires:	pkgconfig
 BuildRequires:	python-modules
 BuildRequires:	rpmbuild(macros) >= 1.647
 %{?with_systemd:BuildRequires:	systemd-devel}
 Requires:	%{name}-libs = %{version}-%{release}
-%if %{without systemd}
+%if %{without systemd} && %{without elogind}
 Requires:	ConsoleKit >= 0.4.1
-%else
-Requires:	systemd-units >= 38
 %endif
 Requires:	dbus >= 1.1.2-5
+%if %{with systemd}
+Requires:	systemd-units >= 38
+%endif
 Obsoletes:	PolicyKit
 BuildRoot:	%{tmpdir}/%{name}-%{version}-root-%(id -u -n)
 
@@ -114,9 +125,10 @@ Statyczne biblioteki PolicyKit.
 
 %prep
 %setup -q
-%{?with_systemd:%patch0 -p1}
+%if %{with consolekit} && (%{with systemd} || %{with elogind})
+%patch0 -p1
+%endif
 %patch1 -p1
-%patch2 -p1
 
 %build
 %{?with_apidocs:%{__gtkdocize}}
@@ -129,12 +141,14 @@ Statyczne biblioteki PolicyKit.
 %configure \
 	%{__enable_disable apidocs gtk-doc} \
 	--disable-silent-rules \
+	%{__enable_disable elogind libelogind} \
 	%{__enable_disable systemd libsystemd-login} \
 	--with-html-dir=%{_gtkdocdir} \
 	--with-pam-include=system-auth \
 	--with-pam-module-dir=/%{_lib}/security \
 	--with-polkitd-user=polkitd
 
+LC_ALL=C.UTF-8 \
 %{__make} -j1
 
 %install

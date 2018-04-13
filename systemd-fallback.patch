@@ -29,9 +29,8 @@ diff -ruN polkit-0.113.orig/src/polkit/Makefile.am polkit-0.113/src/polkit/Makef
  
  libpolkit_gobject_1_la_CFLAGS =                                        	\
          -D_POLKIT_COMPILATION                                  		\
-diff -ruN polkit-0.113.orig/src/polkit/polkitunixsession.c polkit-0.113/src/polkit/polkitunixsession.c
---- polkit-0.113.orig/src/polkit/polkitunixsession.c	2014-01-14 23:42:25.000000000 +0100
-+++ polkit-0.113/src/polkit/polkitunixsession.c	2015-09-26 23:40:21.671982135 +0200
+--- polkit-0.114/src/polkit/polkitunixsession.c.orig	2018-03-23 16:09:30.000000000 +0100
++++ polkit-0.114/src/polkit/polkitunixsession.c	2018-04-12 19:03:50.775644785 +0200
 @@ -29,6 +29,12 @@
  #include "polkiterror.h"
  #include "polkitprivate.h"
@@ -45,7 +44,7 @@ diff -ruN polkit-0.113.orig/src/polkit/polkitunixsession.c polkit-0.113/src/polk
  /**
   * SECTION:polkitunixsession
   * @title: PolkitUnixSession
-@@ -363,35 +369,49 @@
+@@ -363,35 +369,49 @@ polkit_unix_session_exists_sync (PolkitS
  {
    PolkitUnixSession *session = POLKIT_UNIX_SESSION (subject);
    GDBusConnection *connection;
@@ -114,7 +113,7 @@ diff -ruN polkit-0.113.orig/src/polkit/polkitunixsession.c polkit-0.113/src/polk
    return ret;
  }
  
-@@ -474,6 +494,7 @@
+@@ -474,6 +494,7 @@ polkit_unix_session_initable_init (GInit
    GVariant *result;
    gboolean ret;
  
@@ -122,14 +121,31 @@ diff -ruN polkit-0.113.orig/src/polkit/polkitunixsession.c polkit-0.113/src/polk
    connection = NULL;
    ret = FALSE;
  
-@@ -484,28 +505,51 @@
+@@ -484,28 +505,65 @@ polkit_unix_session_initable_init (GInit
        goto out;
      }
  
 -  connection = g_bus_get_sync (G_BUS_TYPE_SYSTEM, cancellable, error);
 -  if (connection == NULL)
 -    goto out;
--
++#ifdef HAVE_LIBSYSTEMD
++  char *s;
++  uid_t uid;
++  
++  if (sd_booted () > 0)
++    {
++      if (sd_pid_get_session (session->pid, &s) == 0)
++        {
++          session->session_id = g_strdup (s);
++          free (s);
++          ret = TRUE;
++          goto out;
++        }
++
++  /* Now do process -> uid -> graphical session (systemd version 213)*/
++  if (sd_pid_get_owner_uid (session->pid, &uid) < 0)
++    goto error;
+ 
 -  result = g_dbus_connection_call_sync (connection,
 -                                        "org.freedesktop.ConsoleKit",           /* name */
 -                                        "/org/freedesktop/ConsoleKit/Manager",  /* object path */
@@ -143,19 +159,17 @@ diff -ruN polkit-0.113.orig/src/polkit/polkitunixsession.c polkit-0.113/src/polk
 -                                        error);
 -  if (result == NULL)
 -    goto out;
-+#ifdef HAVE_LIBSYSTEMD
-+  char *s;
-+  
-+  if (sd_booted () > 0)
++  if (sd_uid_get_display (uid, &s) >= 0)
 +    {
-+      if (sd_pid_get_session (session->pid, &s) == 0)
-+        {
-+          session->session_id = g_strdup (s);
-+          free (s);
-+          ret = TRUE;
-+          goto out;
-+        }
-+
++      session->session_id =  g_strdup (s);
++      free (s);
++      ret = TRUE;
++      goto out;
++    }
+ 
+-  g_variant_get (result, "(o)", &session->session_id);
+-  g_variant_unref (result);
++error:
 +      g_set_error (error,
 +                   POLKIT_ERROR,
 +                   POLKIT_ERROR_FAILED,
@@ -183,21 +197,18 @@ diff -ruN polkit-0.113.orig/src/polkit/polkitunixsession.c polkit-0.113/src/polk
 +      if (result == NULL)
 +	goto out;
  
--  g_variant_get (result, "(o)", &session->session_id);
--  g_variant_unref (result);
+-  ret = TRUE;
 +      g_variant_get (result, "(o)", &session->session_id);
 +      g_variant_unref (result);
- 
--  ret = TRUE;
++
 +      ret = TRUE;
 +    }
  
   out:
    if (connection != NULL)
-diff -ruN polkit-0.113.orig/src/polkit/polkitunixsession-systemd.c polkit-0.113/src/polkit/polkitunixsession-systemd.c
---- polkit-0.113.orig/src/polkit/polkitunixsession-systemd.c	2014-01-14 23:42:25.000000000 +0100
-+++ polkit-0.113/src/polkit/polkitunixsession-systemd.c	1970-01-01 01:00:00.000000000 +0100
-@@ -1,490 +0,0 @@
+--- polkit-0.114/src/polkit/polkitunixsession-systemd.c.orig	2018-04-12 18:55:30.995650493 +0200
++++ polkit-0.114/src/polkit/polkitunixsession-systemd.c	1970-01-01 01:00:00.000000000 +0100
+@@ -1,504 +0,0 @@
 -/*
 - * Copyright (C) 2011 Red Hat, Inc.
 - *
@@ -651,6 +662,7 @@ diff -ruN polkit-0.113.orig/src/polkit/polkitunixsession-systemd.c polkit-0.113/
 -  PolkitUnixSession *session = POLKIT_UNIX_SESSION (initable);
 -  gboolean ret = FALSE;
 -  char *s;
+-  uid_t uid;
 -
 -  if (session->session_id != NULL)
 -    {
@@ -667,6 +679,19 @@ diff -ruN polkit-0.113.orig/src/polkit/polkitunixsession-systemd.c polkit-0.113/
 -      goto out;
 -    }
 -
+-  /* Now do process -> uid -> graphical session (systemd version 213)*/
+-  if (sd_pid_get_owner_uid (session->pid, &uid) < 0)
+-    goto error;
+-
+-  if (sd_uid_get_display (uid, &s) >= 0)
+-    {
+-      session->session_id =  g_strdup (s);
+-      free (s);
+-      ret = TRUE;
+-      goto out;
+-    }
+-
+-error:
 -  g_set_error (error,
 -               POLKIT_ERROR,
 -               POLKIT_ERROR_FAILED,
@@ -707,9 +732,8 @@ diff -ruN polkit-0.113.orig/src/polkitbackend/Makefile.am polkit-0.113/src/polki
  
  libpolkit_backend_1_la_CFLAGS =                                        	\
          -D_POLKIT_COMPILATION                                  		\
-diff -ruN polkit-0.113.orig/src/polkitbackend/polkitbackendjsauthority.c polkit-0.113/src/polkitbackend/polkitbackendjsauthority.c
---- polkit-0.113.orig/src/polkitbackend/polkitbackendjsauthority.c	2015-06-19 22:39:58.000000000 +0200
-+++ polkit-0.113/src/polkitbackend/polkitbackendjsauthority.c	2015-09-26 23:40:21.674982125 +0200
+--- polkit-0.114.orig/src/polkitbackend/polkitbackendjsauthority.cpp	2015-06-19 22:39:58.000000000 +0200
++++ polkit-0.114/src/polkitbackend/polkitbackendjsauthority.cpp	2015-09-26 23:40:21.674982125 +0200
 @@ -36,6 +36,7 @@
  #include <polkit/polkitprivate.h>
  
