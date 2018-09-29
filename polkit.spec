@@ -1,4 +1,3 @@
-# NOTE: elogind also supported (--disable-libsystemd-login --enable-libelogind)
 #
 # Conditional build:
 %bcond_without	apidocs		# build without apidocs
@@ -12,14 +11,13 @@
 Summary:	A framework for defining policy for system-wide components
 Summary(pl.UTF-8):	Szkielet do definiowania polityki dla komponentów systemowych
 Name:		polkit
-Version:	0.114
+Version:	0.115
 Release:	1
 License:	LGPL v2+
 Group:		Libraries
 Source0:	https://www.freedesktop.org/software/polkit/releases/%{name}-%{version}.tar.gz
-# Source0-md5:	93ff41874e7df8c62ed9e41893817f04
+# Source0-md5:	f03b055d6ae5fc8eac76838c7d83d082
 Patch0:		systemd-fallback.patch
-Patch1:		%{name}-format.patch
 URL:		https://www.freedesktop.org/wiki/Software/polkit
 BuildRequires:	autoconf >= 2.60
 BuildRequires:	automake >= 1:1.7
@@ -128,7 +126,6 @@ Statyczne biblioteki PolicyKit.
 %if %{with consolekit} && (%{with systemd} || %{with elogind})
 %patch0 -p1
 %endif
-%patch1 -p1
 
 %build
 %{?with_apidocs:%{__gtkdocize}}
