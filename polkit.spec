@@ -11,12 +11,12 @@
 Summary:	A framework for defining policy for system-wide components
 Summary(pl.UTF-8):	Szkielet do definiowania polityki dla komponentów systemowych
 Name:		polkit
-Version:	0.117
+Version:	0.118
 Release:	1
 License:	LGPL v2+
 Group:		Libraries
 Source0:	https://www.freedesktop.org/software/polkit/releases/%{name}-%{version}.tar.gz
-# Source0-md5:	bef4987566059634857b9882b48360f8
+# Source0-md5:	ae3f2a742740069922589ad20ffd54d2
 Patch0:		systemd-fallback.patch
 URL:		https://www.freedesktop.org/wiki/Software/polkit
 BuildRequires:	autoconf >= 2.60
@@ -37,7 +37,7 @@ BuildRequires:	intltool >= 0.40.0
 BuildRequires:	libstdc++-devel >= 6:4.7
 BuildRequires:	libtool >= 2:1.5
 BuildRequires:	libxslt-progs
-BuildRequires:	mozjs68-devel
+BuildRequires:	mozjs78-devel
 BuildRequires:	pam-devel >= 0.80
 BuildRequires:	pkgconfig
 BuildRequires:	python-modules
