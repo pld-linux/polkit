@@ -717,8 +717,8 @@ diff -ruN polkit-0.113.orig/src/polkitbackend/Makefile.am polkit-0.113/src/polki
 --- polkit-0.113.orig/src/polkitbackend/Makefile.am	2015-06-19 22:31:02.000000000 +0200
 +++ polkit-0.113/src/polkitbackend/Makefile.am	2015-09-26 23:40:21.674982125 +0200
 @@ -36,15 +36,7 @@
+ 	polkitbackendjsauthority.h		polkitbackendjsauthority.cpp		\
  	polkitbackendactionpool.h		polkitbackendactionpool.c		\
- 	polkitbackendconfigsource.h		polkitbackendconfigsource.c		\
  	polkitbackendactionlookup.h		polkitbackendactionlookup.c		\
 -        $(NULL)
 -

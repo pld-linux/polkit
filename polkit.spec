@@ -11,12 +11,12 @@
 Summary:	A framework for defining policy for system-wide components
 Summary(pl.UTF-8):	Szkielet do definiowania polityki dla komponentów systemowych
 Name:		polkit
-Version:	0.118
+Version:	0.119
 Release:	1
 License:	LGPL v2+
 Group:		Libraries
 Source0:	https://www.freedesktop.org/software/polkit/releases/%{name}-%{version}.tar.gz
-# Source0-md5:	ae3f2a742740069922589ad20ffd54d2
+# Source0-md5:	b945e683eb5d633745864af6c5746726
 Patch0:		systemd-fallback.patch
 URL:		https://www.freedesktop.org/wiki/Software/polkit
 BuildRequires:	autoconf >= 2.60
@@ -189,12 +189,12 @@ fi
 %dir %{_sysconfdir}/polkit-1
 %attr(700,polkitd,root) %dir %{_sysconfdir}/polkit-1/rules.d
 %config(noreplace) %verify(not md5 mtime size) %{_sysconfdir}/polkit-1/rules.d/50-default.rules
-/etc/dbus-1/system.d/org.freedesktop.PolicyKit1.conf
 /etc/pam.d/polkit-1
 %dir %{_datadir}/polkit-1
 %{_datadir}/polkit-1/actions
 %attr(700,polkitd,root) %dir %{_datadir}/polkit-1/rules.d
 %{_datadir}/dbus-1/system-services/org.freedesktop.PolicyKit1.service
+%{_datadir}/dbus-1/system.d/org.freedesktop.PolicyKit1.conf
 %{?with_systemd:%{systemdunitdir}/polkit.service}
 %{_mandir}/man1/pkaction.1*
 %{_mandir}/man1/pkcheck.1*
