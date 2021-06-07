@@ -12,11 +12,11 @@ Summary:	A framework for defining policy for system-wide components
 Summary(pl.UTF-8):	Szkielet do definiowania polityki dla komponentów systemowych
 Name:		polkit
 Version:	0.119
-Release:	1
+Release:	2
 License:	LGPL v2+
 Group:		Libraries
-Source0:	https://www.freedesktop.org/software/polkit/releases/%{name}-%{version}.tar.gz
-# Source0-md5:	b945e683eb5d633745864af6c5746726
+Source0:	https://gitlab.freedesktop.org/polkit/polkit/-/archive/%{version}/%{name}-%{version}.tar.bz2
+# Source0-md5:	16b0ec658efae724378c7f75233d4120
 Patch0:		systemd-fallback.patch
 URL:		https://www.freedesktop.org/wiki/Software/polkit
 BuildRequires:	autoconf >= 2.60
@@ -136,6 +136,7 @@ Statyczne biblioteki PolicyKit.
 %configure \
 	%{__enable_disable apidocs gtk-doc} \
 	--disable-silent-rules \
+	--disable-test \
 	%{__enable_disable elogind libelogind} \
 	%{__enable_disable systemd libsystemd-login} \
 	--with-html-dir=%{_gtkdocdir} \
