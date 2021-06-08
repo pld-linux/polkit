@@ -34,13 +34,13 @@ BuildRequires:	gobject-introspection-devel >= 0.6.2
 %{?with_apidocs:BuildRequires:	gtk-doc >= 1.3}
 BuildRequires:	gtk-doc-automake >= 1.3
 BuildRequires:	intltool >= 0.40.0
-BuildRequires:	libstdc++-devel >= 6:4.7
+BuildRequires:	libstdc++-devel >= 6:7
 BuildRequires:	libtool >= 2:1.5
 BuildRequires:	libxslt-progs
 BuildRequires:	mozjs78-devel
 BuildRequires:	pam-devel >= 0.80
 BuildRequires:	pkgconfig
-BuildRequires:	python-modules
+BuildRequires:	rpm-build >= 4.6
 BuildRequires:	rpmbuild(macros) >= 1.647
 %{?with_systemd:BuildRequires:	systemd-devel}
 Requires:	%{name}-libs = %{version}-%{release}
