@@ -31,7 +31,7 @@ BuildRequires:	glib2-devel >= 1:2.32.0
 BuildRequires:	glibc-localedb-all
 %endif
 BuildRequires:	gobject-introspection-devel >= 0.6.2
-%{?with_apidocs:BuildRequires:	gtk-doc >= 1.3}
+BuildRequires:	gtk-doc >= 1.3
 BuildRequires:	gtk-doc-automake >= 1.3
 BuildRequires:	intltool >= 0.40.0
 BuildRequires:	libstdc++-devel >= 6:7
@@ -126,7 +126,7 @@ Statyczne biblioteki PolicyKit.
 %endif
 
 %build
-%{?with_apidocs:%{__gtkdocize}}
+%{__gtkdocize}
 %{__intltoolize}
 %{__libtoolize}
 %{__aclocal}
