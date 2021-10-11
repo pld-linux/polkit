@@ -15,10 +15,9 @@ Version:	0.120
 Release:	1
 License:	LGPL v2+
 Group:		Libraries
-Source0:	https://gitlab.freedesktop.org/polkit/polkit/-/archive/%{version}/%{name}-%{version}.tar.bz2
-# Source0-md5:	6d2c0b130eec4a53b32f044dd4f1e4b8
+Source0:	https://www.freedesktop.org/software/polkit/releases/%{name}-%{version}.tar.gz
+# Source0-md5:	a6efe21d021fafe4191ee30331ef801c
 Patch0:		systemd-fallback.patch
-Patch1:		%{name}-gettext.patch
 URL:		https://www.freedesktop.org/wiki/Software/polkit
 BuildRequires:	autoconf >= 2.60
 BuildRequires:	automake >= 1:1.7
@@ -124,7 +123,6 @@ Statyczne biblioteki PolicyKit.
 %if %{with consolekit} && (%{with systemd} || %{with elogind})
 %patch0 -p1
 %endif
-%patch1 -p1
 
 %build
 %{__gtkdocize}
