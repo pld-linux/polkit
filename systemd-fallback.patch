@@ -1,34 +1,3 @@
-diff -ruN polkit-0.113.orig/configure.ac polkit-0.113/configure.ac
---- polkit-0.113.orig/configure.ac	2015-06-19 22:31:02.000000000 +0200
-+++ polkit-0.113/configure.ac	2015-09-26 23:40:21.669982142 +0200
-@@ -200,7 +200,7 @@
-     [have_libsystemd=yes],
-     dnl if libsystemd is not available, fall back to the older libsystemd-login
-     [PKG_CHECK_MODULES([LIBSYSTEMD_LOGIN],
--      [libsystemd-login],
-+      [libsystemd-login libsystemd-daemon],
-       [
-         have_libsystemd=yes
-         LIBSYSTEMD_CFLAGS="$LIBSYSTEMD_LOGIN_CFLAGS"
-diff -ruN polkit-0.113.orig/src/polkit/Makefile.am polkit-0.113/src/polkit/Makefile.am
---- polkit-0.113.orig/src/polkit/Makefile.am	2015-06-19 22:31:02.000000000 +0200
-+++ polkit-0.113/src/polkit/Makefile.am	2015-09-26 23:40:21.669982142 +0200
-@@ -79,15 +79,7 @@
- 	polkitimplicitauthorization.c		polkitimplicitauthorization.h		\
- 	polkittemporaryauthorization.c		polkittemporaryauthorization.h		\
- 	polkitpermission.c			polkitpermission.h			\
--        $(NULL)
--
--if HAVE_LIBSYSTEMD
--libpolkit_gobject_1_la_SOURCES += \
--	polkitunixsession-systemd.c		polkitunixsession.h
--else
--libpolkit_gobject_1_la_SOURCES += \
- 	polkitunixsession.c			polkitunixsession.h
--endif
- 
- libpolkit_gobject_1_la_CFLAGS =                                        	\
-         -D_POLKIT_COMPILATION                                  		\
 --- polkit-0.114/src/polkit/polkitunixsession.c.orig	2018-03-23 16:09:30.000000000 +0100
 +++ polkit-0.114/src/polkit/polkitunixsession.c	2018-04-12 19:03:50.775644785 +0200
 @@ -29,6 +29,12 @@
@@ -713,28 +682,9 @@ diff -ruN polkit-0.113.orig/src/polkit/Makefile.am polkit-0.113/src/polkit/Makef
 -{
 -  /* use default implementation to run GInitable code in a thread */
 -}
-diff -ruN polkit-0.113.orig/src/polkitbackend/Makefile.am polkit-0.113/src/polkitbackend/Makefile.am
---- polkit-0.113.orig/src/polkitbackend/Makefile.am	2015-06-19 22:31:02.000000000 +0200
-+++ polkit-0.113/src/polkitbackend/Makefile.am	2015-09-26 23:40:21.674982125 +0200
-@@ -36,15 +36,7 @@
- 	polkitbackendjsauthority.h		polkitbackendjsauthority.cpp		\
- 	polkitbackendactionpool.h		polkitbackendactionpool.c		\
- 	polkitbackendactionlookup.h		polkitbackendactionlookup.c		\
--        $(NULL)
--
--if HAVE_LIBSYSTEMD
--libpolkit_backend_1_la_SOURCES += \
--	polkitbackendsessionmonitor.h		polkitbackendsessionmonitor-systemd.c
--else
--libpolkit_backend_1_la_SOURCES += \
- 	polkitbackendsessionmonitor.h		polkitbackendsessionmonitor.c
--endif
- 
- libpolkit_backend_1_la_CFLAGS =                                        	\
-         -D_POLKIT_COMPILATION                                  		\
---- polkit-0.114.orig/src/polkitbackend/polkitbackendjsauthority.cpp	2015-06-19 22:39:58.000000000 +0200
-+++ polkit-0.114/src/polkitbackend/polkitbackendjsauthority.cpp	2015-09-26 23:40:21.674982125 +0200
-@@ -36,6 +36,7 @@
+--- polkit-v.121/src/polkitbackend/polkitbackendcommon.h.orig	2022-07-11 10:46:06.000000000 +0200
++++ polkit-v.121/src/polkitbackend/polkitbackendcommon.h	2022-07-13 23:30:49.653425289 +0200
+@@ -47,6 +47,7 @@
  #include <polkit/polkitprivate.h>
  
  #ifdef HAVE_LIBSYSTEMD
@@ -742,6 +692,8 @@ diff -ruN polkit-0.113.orig/src/polkitbackend/Makefile.am polkit-0.113/src/polki
  #include <systemd/sd-login.h>
  #endif /* HAVE_LIBSYSTEMD */
  
+--- polkit-0.114.orig/src/polkitbackend/polkitbackendjsauthority.cpp	2015-06-19 22:39:58.000000000 +0200
++++ polkit-0.114/src/polkitbackend/polkitbackendjsauthority.cpp	2015-09-26 23:40:21.674982125 +0200
 @@ -794,6 +795,8 @@
      }
  
@@ -1671,3 +1623,52 @@ diff -ruN polkit-0.113.orig/src/polkitbackend/Makefile.am polkit-0.113/src/polki
 -  return sd_session_is_active (session_id);
 -}
 -
+diff -ur polkit-v.121.orig/meson.build polkit-v.121/meson.build
+--- polkit-v.121.orig/meson.build	2022-07-11 10:46:06.000000000 +0200
++++ polkit-v.121/meson.build	2022-07-13 23:02:30.432622964 +0200
+@@ -187,7 +187,8 @@
+   if session_tracking == 'libsystemd-login'
+     logind_dep = dependency('libsystemd', required: false)
+     if not logind_dep.found()
+-      logind_dep = dependency('libsystemd-login', not_found_message: 'libsystemd support requested but libsystemd or libsystemd-login library not found')
++      logind_dep = [ dependency('libsystemd-login', not_found_message: 'libsystemd support requested but libsystemd or libsystemd-login library not found'),dependency('libsystemd-daemon', not_found_message: 'libsystemd support requested but libsystemd or libsystemd-daemon library not found')]
++
+     endif
+   else
+     logind_dep = dependency('libelogind', not_found_message: 'libelogind support requested but libelogind library not found')
+diff -ur polkit-v.121.orig/src/polkit/meson.build polkit-v.121/src/polkit/meson.build
+--- polkit-v.121.orig/src/polkit/meson.build	2022-07-11 10:46:06.000000000 +0200
++++ polkit-v.121/src/polkit/meson.build	2022-07-13 23:11:05.333520578 +0200
+@@ -77,13 +77,11 @@
+ c_flags = '-D_POLKIT_COMPILATION'
+ 
+ if enable_logind
+-  sources += 'polkitunixsession-systemd.c'
+-
+   deps += logind_dep
+-else
+-  sources += 'polkitunixsession.c'
+ endif
+ 
++  sources += 'polkitunixsession.c'
++
+ libpolkit_gobject = shared_library(
+   name,
+   sources: sources,
+diff -ur polkit-v.121.orig/src/polkitbackend/meson.build polkit-v.121/src/polkitbackend/meson.build
+--- polkit-v.121.orig/src/polkitbackend/meson.build	2022-07-11 10:46:06.000000000 +0200
++++ polkit-v.121/src/polkitbackend/meson.build	2022-07-13 23:05:09.917827287 +0200
+@@ -43,12 +43,9 @@
+ endif
+ 
+ if enable_logind
+-  sources += files('polkitbackendsessionmonitor-systemd.c')
+-
+   deps += logind_dep
+-else
+-  sources += files('polkitbackendsessionmonitor.c')
+ endif
++  sources += files('polkitbackendsessionmonitor.c')
+ 
+ libpolkit_backend = static_library(
+   name,

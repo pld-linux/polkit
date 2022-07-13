@@ -2,6 +2,7 @@
 # Conditional build:
 %bcond_without	apidocs		# build without apidocs
 %bcond_without	consolekit	# ConsoleKit fallback
+%bcond_with	mozjs		# build with mozjs as JS backend instead of duktape
 %bcond_without	systemd		# use systemd-login for session tracking (fallback to ConsoleKit on runtime)
 %bcond_with	elogind		# use elogind instead of systemd-login
 
@@ -11,19 +12,18 @@
 Summary:	A framework for defining policy for system-wide components
 Summary(pl.UTF-8):	Szkielet do definiowania polityki dla komponentów systemowych
 Name:		polkit
-Version:	0.120
-Release:	2
+Version:	121
+Release:	1
 License:	LGPL v2+
 Group:		Libraries
 Source0:	https://www.freedesktop.org/software/polkit/releases/%{name}-%{version}.tar.gz
-# Source0-md5:	a6efe21d021fafe4191ee30331ef801c
+# Source0-md5:	255761abdc616805a6592bb5fffae178
 Patch0:		systemd-fallback.patch
-Patch1:		CVE-2021-4034.patch
 URL:		https://www.freedesktop.org/wiki/Software/polkit
-BuildRequires:	autoconf >= 2.60
-BuildRequires:	automake >= 1:1.7
+BuildRequires:	dbus-devel
 BuildRequires:	docbook-dtd412-xml
 BuildRequires:	docbook-style-xsl
+%{!?with_mozjs:BuildRequires:	duktape-devel >= 2.2.0}
 %{?with_elogind:BuildRequires:	elogind-devel}
 BuildRequires:	expat-devel >= 1:1.95.8
 BuildRequires:	gettext-tools
@@ -35,19 +35,21 @@ BuildRequires:	gobject-introspection-devel >= 0.6.2
 BuildRequires:	gtk-doc >= 1.3
 BuildRequires:	gtk-doc-automake >= 1.3
 BuildRequires:	libstdc++-devel >= 6:7
-BuildRequires:	libtool >= 2:1.5
 BuildRequires:	libxslt-progs
-BuildRequires:	mozjs78-devel
+BuildRequires:	meson >= 0.50.0
+%{?with_mozjs:BuildRequires:	mozjs91-devel}
+BuildRequires:	ninja
 BuildRequires:	pam-devel >= 0.80
 BuildRequires:	pkgconfig
 BuildRequires:	rpm-build >= 4.6
-BuildRequires:	rpmbuild(macros) >= 1.647
+BuildRequires:	rpmbuild(macros) >= 1.736
 %{?with_systemd:BuildRequires:	systemd-devel}
 Requires:	%{name}-libs = %{version}-%{release}
 %if %{without systemd} && %{without elogind}
 Requires:	ConsoleKit >= 0.4.1
 %endif
 Requires:	dbus >= 1.1.2-5
+%{!?with_mozjs:Requires:	duktape >= 2.2.0}
 %if %{with systemd}
 Requires:	systemd-units >= 38
 %endif
@@ -106,55 +108,30 @@ Header files for PolicyKit.
 %description devel -l pl.UTF-8
 Pliki nagłówkowe PolicyKit.
 
-%package static
-Summary:	Static PolicyKit libraries
-Summary(pl.UTF-8):	Statyczne biblioteki PolicyKit
-Group:		Development/Libraries
-Requires:	%{name}-devel = %{version}-%{release}
-Obsoletes:	PolicyKit-static
-
-%description static
-Static PolicyKit libraries.
-
-%description static -l pl.UTF-8
-Statyczne biblioteki PolicyKit.
-
 %prep
-%setup -q
+%setup -q -n %{name}-v.%{version}
 %if %{with consolekit} && (%{with systemd} || %{with elogind})
 %patch0 -p1
 %endif
-%patch1 -p1
 
 %build
-%{__gtkdocize}
-%{__gettextize}
-%{__libtoolize}
-%{__aclocal}
-%{__autoconf}
-%{__autoheader}
-%{__automake}
-%configure \
-	%{__enable_disable apidocs gtk-doc} \
-	--disable-silent-rules \
-	--disable-test \
-	%{__enable_disable elogind libelogind} \
-	%{__enable_disable systemd libsystemd-login} \
-	--with-html-dir=%{_gtkdocdir} \
-	--with-pam-include=system-auth \
-	--with-pam-module-dir=/%{_lib}/security \
-	--with-polkitd-user=polkitd
+%meson build \
+	-Dgtk_doc=%{__true_false apidocs} \
+	-Dtests=false \
+	-Dsession_tracking=%{?with_systemd:libsystemd-login}%{?with_elogind:libelogind} \
+	-Dpam_include=system-auth \
+	-Dpam_module_dir=/%{_lib}/security \
+	-Dpolkitd_user=polkitd \
+	-Dexamples=true \
+	-Djs_engine=%{!?with_mozjs:duktape}%{?with_mozjs:mozjs} \
+	-Dman=true
 
-LC_ALL=C.UTF-8 \
-%{__make} -j1
+%ninja_build -C build
 
 %install
 rm -rf $RPM_BUILD_ROOT
 
-%{__make} install \
-	DESTDIR=$RPM_BUILD_ROOT
-
-%{__rm} $RPM_BUILD_ROOT%{_libdir}/*.la
+%ninja_install -C build
 
 %find_lang polkit-1
 
@@ -179,7 +156,7 @@ fi
 
 %files -f polkit-1.lang
 %defattr(644,root,root,755)
-%doc AUTHORS NEWS README
+%doc AUTHORS NEWS.md README.md
 %attr(755,root,root) %{_bindir}/pkaction
 %attr(755,root,root) %{_bindir}/pkcheck
 %attr(4755,root,root) %{_bindir}/pkexec
@@ -193,6 +170,7 @@ fi
 %config(noreplace) %verify(not md5 mtime size) %{_sysconfdir}/polkit-1/rules.d/50-default.rules
 /etc/pam.d/polkit-1
 %dir %{_datadir}/polkit-1
+%{_datadir}/polkit-1/policyconfig-1.dtd
 %{_datadir}/polkit-1/actions
 %attr(700,polkitd,root) %dir %{_datadir}/polkit-1/rules.d
 %{_datadir}/dbus-1/system-services/org.freedesktop.PolicyKit1.service
@@ -233,8 +211,3 @@ fi
 %{_datadir}/gir-1.0/PolkitAgent-1.0.gir
 %{_datadir}/gettext/its/polkit.its
 %{_datadir}/gettext/its/polkit.loc
-
-%files static
-%defattr(644,root,root,755)
-%{_libdir}/libpolkit-agent-1.a
-%{_libdir}/libpolkit-gobject-1.a
