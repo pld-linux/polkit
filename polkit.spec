@@ -101,6 +101,7 @@ Requires:	%{name}-libs = %{version}-%{release}
 Requires:	expat-devel >= 1:1.95.8
 Requires:	glib2-devel >= 1:2.32.0
 Obsoletes:	PolicyKit-devel
+Obsoletes:	polkit-static < 121
 
 %description devel
 Header files for PolicyKit.
