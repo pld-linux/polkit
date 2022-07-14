@@ -53,7 +53,7 @@ Requires:	dbus >= 1.1.2-5
 %if %{with systemd}
 Requires:	systemd-units >= 38
 %endif
-Obsoletes:	PolicyKit
+Obsoletes:	PolicyKit < 1
 BuildRoot:	%{tmpdir}/%{name}-%{version}-root-%(id -u -n)
 
 %description
@@ -69,7 +69,7 @@ Summary:	PolicyKit API documentation
 Summary(pl.UTF-8):	Dokumentacja API PolicyKit
 Group:		Documentation
 Requires:	gtk-doc-common
-Obsoletes:	PolicyKit-apidocs
+Obsoletes:	PolicyKit-apidocs < 1
 BuildArch:	noarch
 
 %description apidocs
@@ -85,7 +85,7 @@ Group:		Libraries
 Requires:	dbus-libs >= 1.1.2-5
 Requires:	glib2 >= 1:2.32.0
 Requires:	gobject-introspection
-Obsoletes:	PolicyKit-libs
+Obsoletes:	PolicyKit-libs < 1
 
 %description libs
 PolicyKit libraries.
@@ -100,7 +100,7 @@ Group:		Development/Libraries
 Requires:	%{name}-libs = %{version}-%{release}
 Requires:	expat-devel >= 1:1.95.8
 Requires:	glib2-devel >= 1:2.32.0
-Obsoletes:	PolicyKit-devel
+Obsoletes:	PolicyKit-devel < 1
 Obsoletes:	polkit-static < 121
 
 %description devel
