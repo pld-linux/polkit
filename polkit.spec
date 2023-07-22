@@ -19,6 +19,7 @@ Group:		Libraries
 Source0:	https://gitlab.freedesktop.org/polkit/polkit/-/archive/%{version}/%{name}-%{version}.tar.bz2
 # Source0-md5:	7eb1f0070c66e5e8646d23ad38773253
 Patch0:		systemd-fallback.patch
+Patch1:		elogind.patch
 URL:		https://www.freedesktop.org/wiki/Software/polkit
 BuildRequires:	dbus-devel
 BuildRequires:	docbook-dtd412-xml
@@ -113,6 +114,9 @@ Pliki nagłówkowe PolicyKit.
 %setup -q
 %if %{with consolekit} && (%{with systemd} || %{with elogind})
 %patch0 -p1
+%endif
+%if %{with elogind}
+%patch1 -p1
 %endif
 
 %build
