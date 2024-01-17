@@ -692,27 +692,27 @@
  #include <systemd/sd-login.h>
  #endif /* HAVE_LIBSYSTEMD */
  
---- polkit-0.114.orig/src/polkitbackend/polkitbackendjsauthority.cpp	2015-06-19 22:39:58.000000000 +0200
-+++ polkit-0.114/src/polkitbackend/polkitbackendjsauthority.cpp	2015-09-26 23:40:21.674982125 +0200
-@@ -794,6 +795,8 @@
-     }
+--- polkit-124/src/polkitbackend/polkitbackendjsauthority.cpp.orig	2024-01-17 18:40:50.824301827 +0100
++++ polkit-124/src/polkitbackend/polkitbackendjsauthority.cpp	2024-01-17 19:58:17.065797643 +0100
+@@ -624,6 +624,8 @@ subject_to_jsval (PolkitBackendJsAuthori
+   pidfd = polkit_unix_process_get_pidfd (POLKIT_UNIX_PROCESS (process));
  
  #ifdef HAVE_LIBSYSTEMD
 +  if (sd_booted () > 0)
 +  {
-   if (sd_pid_get_session (pid, &session_str) == 0)
-     {
-       if (sd_session_get_seat (session_str, &seat_str) == 0)
-@@ -801,6 +804,7 @@
-           /* do nothing */
-         }
-     }
+ #if HAVE_SD_PIDFD_GET_SESSION
+   if (pidfd >= 0)
+     sd_pidfd_get_session (pidfd, &session_str);
+@@ -632,6 +634,7 @@ subject_to_jsval (PolkitBackendJsAuthori
+     sd_pid_get_session (pid_early, &session_str);
+   if (session_str)
+     sd_session_get_seat (session_str, &seat_str);
 +  }
  #endif /* HAVE_LIBSYSTEMD */
  
    g_assert (POLKIT_IS_UNIX_USER (user_for_subject));
---- polkit-0.115/src/polkitbackend/polkitbackendsessionmonitor.c.orig	2018-06-26 15:17:52.000000000 +0200
-+++ polkit-0.115/src/polkitbackend/polkitbackendsessionmonitor.c	2018-09-29 10:42:52.104190929 +0200
+--- polkit-124/src/polkitbackend/polkitbackendsessionmonitor.c.orig	2024-01-17 16:43:53.000000000 +0100
++++ polkit-124/src/polkitbackend/polkitbackendsessionmonitor.c	2024-01-17 22:05:25.914468626 +0100
 @@ -26,6 +26,12 @@
  #include <string.h>
  #include <glib/gstdio.h>
@@ -815,7 +815,7 @@
  struct _PolkitBackendSessionMonitor
  {
    GObject parent_instance;
-@@ -49,6 +137,10 @@
+@@ -49,6 +137,10 @@ struct _PolkitBackendSessionMonitor
    GKeyFile *database;
    GFileMonitor *database_monitor;
    time_t database_mtime;
@@ -826,7 +826,7 @@
  };
  
  struct _PolkitBackendSessionMonitorClass
-@@ -71,6 +163,18 @@
+@@ -71,6 +163,18 @@ G_DEFINE_TYPE (PolkitBackendSessionMonit
  
  /* ---------------------------------------------------------------------------------------------------- */
  
@@ -845,7 +845,7 @@
  static gboolean
  reload_database (PolkitBackendSessionMonitor  *monitor,
                   GError                      **error)
-@@ -177,31 +281,47 @@
+@@ -177,31 +281,47 @@ polkit_backend_session_monitor_init (Pol
        g_error_free (error);
      }
  
@@ -912,7 +912,7 @@
      }
  }
  
-@@ -219,6 +339,12 @@
+@@ -219,6 +339,12 @@ polkit_backend_session_monitor_finalize
    if (monitor->database != NULL)
      g_key_file_free (monitor->database);
  
@@ -925,7 +925,7 @@
    if (G_OBJECT_CLASS (polkit_backend_session_monitor_parent_class)->finalize != NULL)
      G_OBJECT_CLASS (polkit_backend_session_monitor_parent_class)->finalize (object);
  }
-@@ -332,6 +458,26 @@
+@@ -332,6 +458,26 @@ polkit_backend_session_monitor_get_user_
      }
    else if (POLKIT_IS_UNIX_SESSION (subject))
      {
@@ -952,7 +952,7 @@
        gint uid;
        gchar *group;
  
-@@ -354,6 +500,7 @@
+@@ -354,6 +500,7 @@ polkit_backend_session_monitor_get_user_
  
        ret = polkit_unix_user_new (uid);
        matches = TRUE;
@@ -960,7 +960,7 @@
      }
  
   out:
-@@ -379,35 +526,26 @@
+@@ -379,35 +526,35 @@ polkit_backend_session_monitor_get_sessi
                                                          PolkitSubject               *subject,
                                                          GError                     **error)
  {
@@ -968,7 +968,17 @@
 -
 -  session = NULL;
 +  PolkitSubject *session = NULL;
++  PolkitUnixProcess *process = NULL;
 +  pid_t pid;
++#ifdef HAVE_LIBSYSTEMD
++  PolkitUnixProcess *tmp_process = NULL;
++#if HAVE_SD_UID_GET_DISPLAY
++  uid_t uid;
++#endif
++#if HAVE_SD_PIDFD_GET_SESSION
++  int pidfd;
++#endif
++#endif
  
    if (POLKIT_IS_UNIX_PROCESS (subject))
 -    {
@@ -990,8 +1000,8 @@
 -      g_variant_get (result, "(&o)", &session_id);
 -      session = polkit_unix_session_new (session_id);
 -      g_variant_unref (result);
-+    { /* We already have a process; now do process -> pid */
-+      pid = polkit_unix_process_get_pid (POLKIT_UNIX_PROCESS (subject));
++    { /* We already have a process */  /* now do process -> pid */
++      process = POLKIT_UNIX_PROCESS (subject);
      }
    else if (POLKIT_IS_SYSTEM_BUS_NAME (subject))
 -    {
@@ -1001,18 +1011,17 @@
 +#ifdef HAVE_LIBSYSTEMD
 +      if (monitor->sd_source != NULL)
 +        {
-+	  PolkitUnixProcess *process = (PolkitUnixProcess*)polkit_system_bus_name_get_process_sync (POLKIT_SYSTEM_BUS_NAME(subject), NULL, error);
-+	  if (!process)
-+	    goto out;
-+	  pid = polkit_unix_process_get_pid (process);
-+	  g_object_unref (process);
-+	} else
++          tmp_process = (PolkitUnixProcess*)polkit_system_bus_name_get_process_sync (POLKIT_SYSTEM_BUS_NAME(subject), NULL, error);
++          if (!tmp_process)
++            goto out;
++          process = tmp_process;
++        } else
 +#endif
 +      {
        GVariant *result;
  
        result = g_dbus_connection_call_sync (monitor->system_bus,
-@@ -425,23 +563,7 @@
+@@ -425,23 +572,7 @@ polkit_backend_session_monitor_get_sessi
          goto out;
        g_variant_get (result, "(u)", &pid);
        g_variant_unref (result);
@@ -1037,28 +1046,62 @@
      }
    else
      {
-@@ -450,8 +572,57 @@
+@@ -450,9 +581,97 @@ polkit_backend_session_monitor_get_sessi
                     POLKIT_ERROR_NOT_SUPPORTED,
                     "Cannot get user for subject of type %s",
                     g_type_name (G_TYPE_FROM_INSTANCE (subject)));
 +      goto out;
      }
  
-+  /* Now do pid -> same session */
 +#ifdef HAVE_LIBSYSTEMD
 +      if (monitor->sd_source != NULL)
 +        {
-+          gchar *session_id;
++          char *session_id;
++
++#if HAVE_SD_PIDFD_GET_SESSION
++          /* First try to get the session from the pidfd (systemd version 253) */
++          pidfd = polkit_unix_process_get_pidfd (process);
++          if (pidfd >= 0)
++          {
++            if (sd_pidfd_get_session (pidfd, &session_id) >= 0)
++            {
++              session = polkit_unix_session_new (session_id);
++              free (session_id);
++              goto out;
++            }
++          }
++#endif
++
++          /* Now do process -> pid -> same session */
++          g_assert (process != NULL);
++          pid = polkit_unix_process_get_pid (process);
 +          if (sd_pid_get_session (pid, &session_id) >= 0)
-+	  {
++          {
 +            session = polkit_unix_session_new (session_id);
 +            free (session_id);
 +            goto out;
-+	  }
++          }
++
++#if HAVE_SD_PIDFD_GET_SESSION
++          /* Now do process fd -> uid -> graphical session (systemd version 253) */
++          pidfd = polkit_unix_process_get_pidfd (process);
++          if (pidfd >= 0)
++          {
++            if (sd_pidfd_get_owner_uid (pidfd, &uid) < 0)
++              goto out;
++
++            if (sd_uid_get_display (uid, &session_id) >= 0)
++            {
++              session = polkit_unix_session_new (session_id);
++              free (session_id);
++              goto out;
++            }
++          }
++#endif
++
 +#if HAVE_SD_UID_GET_DISPLAY
-+          uid_t uid;
-+	  /* Now do pid -> uid -> graphical session (systemd version 213)*/
-+	  if (sd_pid_get_owner_uid (pid, &uid) < 0)
++          /* Now do process -> uid -> graphical session (systemd version 213)*/
++          if (sd_pid_get_owner_uid (pid, &uid) < 0)
 +            goto out;
 +
 +          if (sd_uid_get_display (uid, &session_id) >= 0)
@@ -1071,9 +1114,12 @@
 +        }
 +      else
 +#endif /* HAVE_LIBSYSTEMD */
++        /* Now do [process ->] pid -> same session */
 +        {
 +          gchar *session_id;
 +          GVariant *result;
++          if (process != NULL)
++            pid = polkit_unix_process_get_pid (process);
 +          result = g_dbus_connection_call_sync (monitor->system_bus,
 +                                                "org.freedesktop.ConsoleKit",
 +                                                "/org/freedesktop/ConsoleKit/Manager",
@@ -1093,9 +1139,12 @@
 +        }
 +
   out:
++  if (tmp_process != NULL)
++    g_object_unref (tmp_process);
  
    return session;
-@@ -502,7 +673,22 @@
+ }
+@@ -502,7 +721,22 @@ gboolean
  polkit_backend_session_monitor_is_session_local  (PolkitBackendSessionMonitor *monitor,
                                                    PolkitSubject               *session)
  {
@@ -1119,7 +1168,7 @@
  }
  
  
-@@ -510,6 +696,44 @@
+@@ -510,6 +744,44 @@ gboolean
  polkit_backend_session_monitor_is_session_active (PolkitBackendSessionMonitor *monitor,
                                                    PolkitSubject               *session)
  {
@@ -1165,9 +1214,9 @@
 +    return get_boolean (monitor, session, "is_active");
  }
  
---- polkit-0.115/src/polkitbackend/polkitbackendsessionmonitor-systemd.c.orig	2018-09-29 09:48:19.240894967 +0200
-+++ polkit-0.115/src/polkitbackend/polkitbackendsessionmonitor-systemd.c	1970-01-01 01:00:00.000000000 +0100
-@@ -1,455 +0,0 @@
+--- polkit-124/src/polkitbackend/polkitbackendsessionmonitor-systemd.c.orig	2024-01-17 18:40:50.827635142 +0100
++++ polkit-124/src/polkitbackend/polkitbackendsessionmonitor-systemd.c	1970-01-01 01:00:00.000000000 +0100
+@@ -1,487 +0,0 @@
 -/*
 - * Copyright (C) 2011 Red Hat, Inc.
 - *
@@ -1521,6 +1570,9 @@
 -#if HAVE_SD_UID_GET_DISPLAY
 -  uid_t uid;
 -#endif
+-#if HAVE_SD_PIDFD_GET_SESSION
+-  int pidfd;
+-#endif
 -
 -  if (POLKIT_IS_UNIX_PROCESS (subject))
 -    process = POLKIT_UNIX_PROCESS (subject); /* We already have a process */
@@ -1541,6 +1593,19 @@
 -                   g_type_name (G_TYPE_FROM_INSTANCE (subject)));
 -    }
 -
+-#if HAVE_SD_PIDFD_GET_SESSION
+-  /* First try to get the session from the pidfd (systemd version 253) */
+-  pidfd = polkit_unix_process_get_pidfd (process);
+-  if (pidfd >= 0)
+-    {
+-      if (sd_pidfd_get_session (pidfd, &session_id) >= 0)
+-        {
+-          session = polkit_unix_session_new (session_id);
+-          goto out;
+-        }
+-    }
+-#endif
+-
 -  /* Now do process -> pid -> same session */
 -  g_assert (process != NULL);
 -  pid = polkit_unix_process_get_pid (process);
@@ -1550,6 +1615,22 @@
 -      session = polkit_unix_session_new (session_id);
 -      goto out;
 -    }
+-
+-#if HAVE_SD_PIDFD_GET_SESSION
+-  /* Now do process fd -> uid -> graphical session (systemd version 253) */
+-  pidfd = polkit_unix_process_get_pidfd (process);
+-  if (pidfd >= 0)
+-    {
+-      if (sd_pidfd_get_owner_uid (pidfd, &uid) < 0)
+-        goto out;
+-
+-      if (sd_uid_get_display (uid, &session_id) >= 0)
+-        {
+-          session = polkit_unix_session_new (session_id);
+-          goto out;
+-        }
+-    }
+-#endif
 -
 -#if HAVE_SD_UID_GET_DISPLAY
 -  /* Now do process -> uid -> graphical session (systemd version 213)*/
