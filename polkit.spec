@@ -12,12 +12,12 @@
 Summary:	A framework for defining policy for system-wide components
 Summary(pl.UTF-8):	Szkielet do definiowania polityki dla komponentów systemowych
 Name:		polkit
-Version:	123
+Version:	124
 Release:	1
 License:	LGPL v2+
 Group:		Libraries
 Source0:	https://gitlab.freedesktop.org/polkit/polkit/-/archive/%{version}/%{name}-%{version}.tar.bz2
-# Source0-md5:	5e8c9fe7464776c73aa7116335d701a2
+# Source0-md5:	5cb95118e21d0cf2348069847c3879e8
 Patch0:		systemd-fallback.patch
 Patch1:		elogind.patch
 URL:		https://www.freedesktop.org/wiki/Software/polkit
@@ -38,7 +38,7 @@ BuildRequires:	gtk-doc-automake >= 1.3
 BuildRequires:	libstdc++-devel >= 6:7
 BuildRequires:	libxslt-progs
 BuildRequires:	meson >= 0.50.0
-%{?with_mozjs:BuildRequires:	mozjs102-devel}
+%{?with_mozjs:BuildRequires:	mozjs115-devel}
 BuildRequires:	ninja
 BuildRequires:	pam-devel >= 0.80
 BuildRequires:	pkgconfig
@@ -127,6 +127,7 @@ Pliki nagłówkowe PolicyKit.
 	-Dpam_include=system-auth \
 	-Dpam_module_dir=/%{_lib}/security \
 	-Dpolkitd_user=polkitd \
+	-Dpolkitd_uid=283 \
 	-Dexamples=true \
 	-Djs_engine=%{!?with_mozjs:duktape}%{?with_mozjs:mozjs} \
 	-Dman=true
@@ -172,7 +173,8 @@ fi
 %attr(755,root,root) %{_prefix}/lib/polkit-1/polkitd
 %dir %{_sysconfdir}/polkit-1
 %attr(700,polkitd,root) %dir %{_sysconfdir}/polkit-1/rules.d
-/etc/pam.d/polkit-1
+%{_prefix}/lib/pam.d/polkit-1
+/usr/lib/sysusers.d/polkit.conf
 %dir %{_datadir}/polkit-1
 %{_datadir}/polkit-1/policyconfig-1.dtd
 %{_datadir}/polkit-1/actions
