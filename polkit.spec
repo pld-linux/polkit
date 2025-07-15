@@ -118,7 +118,7 @@ Pliki nagłówkowe PolicyKit.
 %patch -P1 -p1
 
 %build
-%meson build \
+%meson \
 	-Dgtk_doc=%{__true_false apidocs} \
 	-Dtests=false \
 	-Dsession_tracking=%{?with_systemd:libsystemd-login}%{?with_elogind:libelogind} \
@@ -130,12 +130,12 @@ Pliki nagłówkowe PolicyKit.
 	-Djs_engine=%{!?with_mozjs:duktape}%{?with_mozjs:mozjs} \
 	-Dman=true
 
-%ninja_build -C build
+%meson_build
 
 %install
 rm -rf $RPM_BUILD_ROOT
 
-%ninja_install -C build
+%meson_install
 
 %find_lang polkit-1
 
