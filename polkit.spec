@@ -113,9 +113,9 @@ Pliki nagłówkowe PolicyKit.
 %prep
 %setup -q
 %if %{with consolekit} && (%{with systemd} || %{with elogind})
-%patch0 -p1
+%patch -P0 -p1
 %endif
-%patch1 -p1
+%patch -P1 -p1
 
 %build
 %meson build \
