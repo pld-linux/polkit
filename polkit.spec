@@ -43,7 +43,7 @@ BuildRequires:	ninja
 BuildRequires:	pam-devel >= 0.80
 BuildRequires:	pkgconfig
 BuildRequires:	rpm-build >= 4.6
-BuildRequires:	rpmbuild(macros) >= 1.736
+BuildRequires:	rpmbuild(macros) >= 2.042
 %{?with_systemd:BuildRequires:	systemd-devel}
 Requires:	%{name}-libs = %{version}-%{release}
 %if %{without systemd} && %{without elogind}
