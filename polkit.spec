@@ -172,7 +172,7 @@ fi
 %dir %{_sysconfdir}/polkit-1
 %attr(700,polkitd,root) %dir %{_sysconfdir}/polkit-1/rules.d
 %{_prefix}/lib/pam.d/polkit-1
-%{?with_systemd/usr/lib/sysusers.d/polkit.conf}
+%{?with_systemd:/usr/lib/sysusers.d/polkit.conf}
 %dir %{_datadir}/polkit-1
 %{_datadir}/polkit-1/policyconfig-1.dtd
 %{_datadir}/polkit-1/actions
