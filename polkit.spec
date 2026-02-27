@@ -2,7 +2,6 @@
 # Conditional build:
 %bcond_without	apidocs		# build without apidocs
 %bcond_without	consolekit	# ConsoleKit fallback
-%bcond_with	mozjs		# build with mozjs as JS backend instead of duktape
 %bcond_without	systemd		# use systemd-login for session tracking (fallback to ConsoleKit on runtime)
 %bcond_with	elogind		# use elogind instead of systemd-login
 
@@ -12,23 +11,22 @@
 Summary:	A framework for defining policy for system-wide components
 Summary(pl.UTF-8):	Szkielet do definiowania polityki dla komponentów systemowych
 Name:		polkit
-Version:	124
+Version:	127
 Release:	1
 License:	LGPL v2+
 Group:		Libraries
-Source0:	https://gitlab.freedesktop.org/polkit/polkit/-/archive/%{version}/%{name}-%{version}.tar.bz2
-# Source0-md5:	5cb95118e21d0cf2348069847c3879e8
+Source0:	https://github.com/polkit-org/polkit/archive/%{version}/%{name}-%{version}.tar.gz
+# Source0-md5:	2cc95f1b02fc1de6c9e52db986642ec4
 Patch0:		systemd-fallback.patch
-Patch1:		elogind-build.patch
-URL:		https://www.freedesktop.org/wiki/Software/polkit
+URL:		https://github.com/polkit-org/polkit
 BuildRequires:	dbus-devel
 BuildRequires:	docbook-dtd412-xml
 BuildRequires:	docbook-style-xsl
-%{!?with_mozjs:BuildRequires:	duktape-devel >= 2.2.0}
+BuildRequires:	duktape-devel >= 2.2.0
 %{?with_elogind:BuildRequires:	elogind-devel}
 BuildRequires:	expat-devel >= 1:1.95.8
 BuildRequires:	gettext-tools
-BuildRequires:	glib2-devel >= 1:2.32.0
+BuildRequires:	glib2-devel >= 1:2.44.0
 %if %(locale -a | grep -q '^C\.utf8$'; echo $?)
 BuildRequires:	glibc-localedb-all
 %endif
@@ -37,8 +35,7 @@ BuildRequires:	gtk-doc >= 1.3
 BuildRequires:	gtk-doc-automake >= 1.3
 BuildRequires:	libstdc++-devel >= 6:7
 BuildRequires:	libxslt-progs
-BuildRequires:	meson >= 0.50.0
-%{?with_mozjs:BuildRequires:	mozjs115-devel}
+BuildRequires:	meson >= 1.4.0
 BuildRequires:	ninja
 BuildRequires:	pam-devel >= 0.80
 BuildRequires:	pkgconfig
@@ -50,7 +47,7 @@ Requires:	%{name}-libs = %{version}-%{release}
 Requires:	ConsoleKit >= 0.4.1
 %endif
 Requires:	dbus >= 1.1.2-5
-%{!?with_mozjs:Requires:	duktape >= 2.2.0}
+Requires:	duktape >= 2.2.0
 %if %{with systemd}
 Requires:	systemd-units >= 38
 %endif
@@ -84,7 +81,7 @@ Summary:	PolicyKit libraries
 Summary(pl.UTF-8):	Biblioteki PolicyKit
 Group:		Libraries
 Requires:	dbus-libs >= 1.1.2-5
-Requires:	glib2 >= 1:2.32.0
+Requires:	glib2 >= 1:2.44.0
 Requires:	gobject-introspection
 Obsoletes:	PolicyKit-libs < 1
 
@@ -100,7 +97,7 @@ Summary(pl.UTF-8):	Pliki nagłówkowe PolicyKit
 Group:		Development/Libraries
 Requires:	%{name}-libs = %{version}-%{release}
 Requires:	expat-devel >= 1:1.95.8
-Requires:	glib2-devel >= 1:2.32.0
+Requires:	glib2-devel >= 1:2.44.0
 Obsoletes:	PolicyKit-devel < 1
 Obsoletes:	polkit-static < 121
 
@@ -115,19 +112,17 @@ Pliki nagłówkowe PolicyKit.
 %if %{with consolekit} && (%{with systemd} || %{with elogind})
 %patch -P0 -p1
 %endif
-%patch -P1 -p1
 
 %build
 %meson \
 	-Dgtk_doc=%{__true_false apidocs} \
 	-Dtests=false \
-	-Dsession_tracking=%{?with_systemd:libsystemd-login}%{?with_elogind:libelogind} \
+	-Dsession_tracking=%{?with_systemd:logind}%{?with_elogind:elogind} \
 	-Dpam_include=system-auth \
 	-Dpam_module_dir=/%{_lib}/security \
 	-Dpolkitd_user=polkitd \
 	-Dpolkitd_uid=283 \
 	-Dexamples=true \
-	-Djs_engine=%{!?with_mozjs:duktape}%{?with_mozjs:mozjs} \
 	-Dman=true
 
 %meson_build
@@ -172,19 +167,26 @@ fi
 %dir %{_sysconfdir}/polkit-1
 %attr(700,polkitd,root) %dir %{_sysconfdir}/polkit-1/rules.d
 %{_prefix}/lib/pam.d/polkit-1
-%{?with_systemd:/usr/lib/sysusers.d/polkit.conf}
 %dir %{_datadir}/polkit-1
 %{_datadir}/polkit-1/policyconfig-1.dtd
+%{_datadir}/polkit-1/polkitd.conf
 %{_datadir}/polkit-1/actions
 %attr(700,polkitd,root) %dir %{_datadir}/polkit-1/rules.d
 %{_datadir}/polkit-1/rules.d/50-default.rules
 %{_datadir}/dbus-1/system-services/org.freedesktop.PolicyKit1.service
 %{_datadir}/dbus-1/system.d/org.freedesktop.PolicyKit1.conf
-%{?with_systemd:%{systemdunitdir}/polkit.service}
+%if %{with systemd}
+%{_prefix}/lib/sysusers.d/polkit.conf
+%{systemdunitdir}/polkit-agent-helper.socket
+%{systemdunitdir}/polkit-agent-helper@.service
+%{systemdunitdir}/polkit.service
+%{systemdtmpfilesdir}/polkit-tmpfiles.conf
+%endif
 %{_mandir}/man1/pkaction.1*
 %{_mandir}/man1/pkcheck.1*
 %{_mandir}/man1/pkexec.1*
 %{_mandir}/man1/pkttyagent.1*
+%{_mandir}/man5/polkitd.conf.5*
 %{_mandir}/man8/polkit.8*
 %{_mandir}/man8/polkitd.8*
 
