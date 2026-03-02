@@ -177,7 +177,7 @@
    if (connection != NULL)
 --- polkit-0.114/src/polkit/polkitunixsession-systemd.c.orig	2018-04-12 18:55:30.995650493 +0200
 +++ polkit-0.114/src/polkit/polkitunixsession-systemd.c	1970-01-01 01:00:00.000000000 +0100
-@@ -1,504 +0,0 @@
+@@ -1,500 +0,0 @@
 -/*
 - * Copyright (C) 2011 Red Hat, Inc.
 - *
@@ -198,10 +198,6 @@
 - *
 - * Author: Matthias Clasen
 - */
--
--#ifdef HAVE_CONFIG_H
--#  include "config.h"
--#endif
 -
 -#include <stdlib.h>
 -#include <string.h>
@@ -692,8 +688,8 @@
  #include <systemd/sd-login.h>
  #endif /* HAVE_LIBSYSTEMD */
  
---- polkit-124/src/polkitbackend/polkitbackendjsauthority.cpp.orig	2024-01-17 18:40:50.824301827 +0100
-+++ polkit-124/src/polkitbackend/polkitbackendjsauthority.cpp	2024-01-17 19:58:17.065797643 +0100
+--- polkit-127/src/polkitbackend/polkitbackendduktapeauthority.c.orig	2024-01-17 18:40:50.824301827 +0100
++++ polkit-127/src/polkitbackend/polkitbackendduktapeauthority.c	2024-01-17 19:58:17.065797643 +0100
 @@ -624,6 +624,8 @@ subject_to_jsval (PolkitBackendJsAuthori
    pidfd = polkit_unix_process_get_pidfd (POLKIT_UNIX_PROCESS (process));
  
@@ -726,7 +722,7 @@
  #include <polkit/polkit.h>
  #include <polkit/polkitprivate.h>
  #include "polkitbackendsessionmonitor.h"
-@@ -40,6 +46,88 @@
+@@ -40,6 +46,91 @@
   * The #PolkitBackendSessionMonitor class is a utility class to track and monitor sessions.
   */
  
@@ -765,6 +761,9 @@
 +
 +  g_warn_if_fail (callback != NULL);
 +
++  if (callback == NULL)
++    return G_SOURCE_CONTINUE;
++
 +  ret = (*callback) (user_data);
 +
 +  sd_login_monitor_flush (sd_source->monitor);
@@ -797,9 +796,9 @@
 +  source = g_source_new (&sd_source_funcs, sizeof (SdSource));
 +  sd_source = (SdSource *)source;
 +
-+  if ((ret = sd_login_monitor_new (NULL, &sd_source->monitor)) < 0)
++  if ((ret = sd_login_monitor_new ("session", &sd_source->monitor)) < 0)
 +    {
-+      g_printerr ("Error getting login monitor: %d", ret);
++      g_printerr ("Error getting login monitor: %d\n", ret);
 +    }
 +  else
 +    {
@@ -1216,7 +1215,7 @@
  
 --- polkit-124/src/polkitbackend/polkitbackendsessionmonitor-systemd.c.orig	2024-01-17 18:40:50.827635142 +0100
 +++ polkit-124/src/polkitbackend/polkitbackendsessionmonitor-systemd.c	1970-01-01 01:00:00.000000000 +0100
-@@ -1,487 +0,0 @@
+@@ -1,490 +0,0 @@
 -/*
 - * Copyright (C) 2011 Red Hat, Inc.
 - *
@@ -1238,7 +1237,6 @@
 - * Author: Matthias Clasen
 - */
 -
--#include "config.h"
 -#include <errno.h>
 -#include <pwd.h>
 -#include <grp.h>
@@ -1293,6 +1291,9 @@
 -
 -  g_warn_if_fail (callback != NULL);
 -
+-  if (callback == NULL)
+-    return G_SOURCE_CONTINUE;
+-
 -  ret = (*callback) (user_data);
 -
 -  sd_login_monitor_flush (sd_source->monitor);
@@ -1325,9 +1326,9 @@
 -  source = g_source_new (&sd_source_funcs, sizeof (SdSource));
 -  sd_source = (SdSource *)source;
 -
--  if ((ret = sd_login_monitor_new (NULL, &sd_source->monitor)) < 0)
+-  if ((ret = sd_login_monitor_new ("session", &sd_source->monitor)) < 0)
 -    {
--      g_printerr ("Error getting login monitor: %d", ret);
+-      g_printerr ("Error getting login monitor: %d\n", ret);
 -    }
 -  else
 -    {
@@ -1591,6 +1592,7 @@
 -                   POLKIT_ERROR_NOT_SUPPORTED,
 -                   "Cannot get session for subject of type %s",
 -                   g_type_name (G_TYPE_FROM_INSTANCE (subject)));
+-      goto out;
 -    }
 -
 -#if HAVE_SD_PIDFD_GET_SESSION
@@ -1704,19 +1706,6 @@
 -  return sd_session_is_active (session_id);
 -}
 -
-diff -ur polkit-v.121.orig/meson.build polkit-v.121/meson.build
---- polkit-v.121.orig/meson.build	2022-07-11 10:46:06.000000000 +0200
-+++ polkit-v.121/meson.build	2022-07-13 23:02:30.432622964 +0200
-@@ -187,7 +187,8 @@
-   if session_tracking == 'libsystemd-login'
-     logind_dep = dependency('libsystemd', required: false)
-     if not logind_dep.found()
--      logind_dep = dependency('libsystemd-login', not_found_message: 'libsystemd support requested but libsystemd or libsystemd-login library not found')
-+      logind_dep = [ dependency('libsystemd-login', not_found_message: 'libsystemd support requested but libsystemd or libsystemd-login library not found'),dependency('libsystemd-daemon', not_found_message: 'libsystemd support requested but libsystemd or libsystemd-daemon library not found')]
-+
-     endif
-   else
-     logind_dep = dependency('libelogind', not_found_message: 'libelogind support requested but libelogind library not found')
 diff -ur polkit-v.121.orig/src/polkit/meson.build polkit-v.121/src/polkit/meson.build
 --- polkit-v.121.orig/src/polkit/meson.build	2022-07-11 10:46:06.000000000 +0200
 +++ polkit-v.121/src/polkit/meson.build	2022-07-13 23:11:05.333520578 +0200
@@ -1739,17 +1728,16 @@ diff -ur polkit-v.121.orig/src/polkit/meson.build polkit-v.121/src/polkit/meson.
 diff -ur polkit-v.121.orig/src/polkitbackend/meson.build polkit-v.121/src/polkitbackend/meson.build
 --- polkit-v.121.orig/src/polkitbackend/meson.build	2022-07-11 10:46:06.000000000 +0200
 +++ polkit-v.121/src/polkitbackend/meson.build	2022-07-13 23:05:09.917827287 +0200
-@@ -43,12 +43,9 @@
- endif
+@@ -43,11 +43,9 @@
+ deps += thread_dep
  
  if enable_logind
 -  sources += files('polkitbackendsessionmonitor-systemd.c')
--
    deps += logind_dep
 -else
 -  sources += files('polkitbackendsessionmonitor.c')
  endif
-+  sources += files('polkitbackendsessionmonitor.c')
++sources += files('polkitbackendsessionmonitor.c')
  
  libpolkit_backend = static_library(
    name,
