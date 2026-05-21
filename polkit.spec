@@ -50,6 +50,9 @@ Requires:	dbus >= 1.1.2-5
 Requires:	duktape >= 2.2.0
 %if %{with systemd}
 Requires:	systemd-units >= 38
+%else
+Provides:	user(polkitd)
+Provides:	group(polkitd)
 %endif
 Obsoletes:	PolicyKit < 1
 BuildRoot:	%{tmpdir}/%{name}-%{version}-root-%(id -u -n)
