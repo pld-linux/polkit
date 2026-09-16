@@ -18,6 +18,7 @@ License:	LGPL v2+
 Group:		Libraries
 Source0:	https://github.com/polkit-org/polkit/archive/%{version}/%{name}-%{version}.tar.gz
 # Source0-md5:	2cc95f1b02fc1de6c9e52db986642ec4
+Source1:	50-kernel-version.conf
 Patch0:		systemd-fallback.patch
 Patch1:		CVE-2026-4897.patch
 Patch2:		CVE-2026-85498.patch
@@ -64,6 +65,7 @@ Requires:	ConsoleKit >= 0.4.1
 Requires:	dbus >= 1.1.2-5
 Requires:	duktape >= 2.2.0
 %if %{with systemd}
+Requires(post,preun,postun):	systemd-units >= 38
 Requires:	systemd-units >= 38
 %else
 Provides:	user(polkitd)
@@ -158,6 +160,11 @@ rm -rf $RPM_BUILD_ROOT
 
 %meson_install
 
+%if %{with systemd}
+install -d $RPM_BUILD_ROOT%{systemdunitdir}/polkit-agent-helper.socket.d
+cp -p %{SOURCE1} $RPM_BUILD_ROOT%{systemdunitdir}/polkit-agent-helper.socket.d/
+%endif
+
 %find_lang polkit-1
 
 %clean
@@ -168,12 +175,13 @@ rm -rf $RPM_BUILD_ROOT
 %useradd -u 283 -s /bin/false -c "polkitd pseudo user" -g polkitd polkitd
 %addusertogroup polkitd proc
 
+%if %{with systemd}
+%post
+%systemd_post polkit-agent-helper.socket
+
 %preun
-# The socket-activated helper needs SO_PEERPIDFD (kernel >= 6.5) and PolkitAgentSession
-# falls back to the setuid helper only when the connect fails, so on older kernels an
-# enabled socket breaks authentication outright; the socket is therefore never enabled
-# on install, only deregistered here. https://github.com/polkit-org/polkit/issues/639
-%{?with_systemd:%systemd_preun polkit-agent-helper.socket}
+%systemd_preun polkit-agent-helper.socket
+%endif
 
 %postun
 if [ "$1" = "0" ]; then
@@ -211,6 +219,8 @@ fi
 %if %{with systemd}
 %{_prefix}/lib/sysusers.d/polkit.conf
 %{systemdunitdir}/polkit-agent-helper.socket
+%dir %{systemdunitdir}/polkit-agent-helper.socket.d
+%{systemdunitdir}/polkit-agent-helper.socket.d/50-kernel-version.conf
 %{systemdunitdir}/polkit-agent-helper@.service
 %{systemdunitdir}/polkit.service
 %{systemdtmpfilesdir}/polkit-tmpfiles.conf
