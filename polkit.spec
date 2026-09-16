@@ -3,6 +3,7 @@
 %bcond_without	apidocs		# build without apidocs
 %bcond_without	consolekit	# ConsoleKit fallback
 %bcond_without	systemd		# use systemd-login for session tracking (fallback to ConsoleKit on runtime)
+%bcond_without	tests		# test suite
 %bcond_with	elogind		# use elogind instead of systemd-login
 
 %if %{with elogind}
@@ -12,12 +13,15 @@ Summary:	A framework for defining policy for system-wide components
 Summary(pl.UTF-8):	Szkielet do definiowania polityki dla komponentów systemowych
 Name:		polkit
 Version:	127
-Release:	1
+Release:	2
 License:	LGPL v2+
 Group:		Libraries
 Source0:	https://github.com/polkit-org/polkit/archive/%{version}/%{name}-%{version}.tar.gz
 # Source0-md5:	2cc95f1b02fc1de6c9e52db986642ec4
 Patch0:		systemd-fallback.patch
+Patch1:		CVE-2026-4897.patch
+Patch2:		CVE-2026-85498.patch
+Patch3:		polkit-agent-session-use-after-free.patch
 URL:		https://github.com/polkit-org/polkit
 BuildRequires:	dbus-devel
 BuildRequires:	docbook-dtd412-xml
@@ -31,17 +35,28 @@ BuildRequires:	glib2-devel >= 1:2.44.0
 BuildRequires:	glibc-localedb-all
 %endif
 BuildRequires:	gobject-introspection-devel >= 0.6.2
-BuildRequires:	gtk-doc >= 1.3
-BuildRequires:	gtk-doc-automake >= 1.3
-BuildRequires:	libstdc++-devel >= 6:7
+%{?with_apidocs:BuildRequires:	gtk-doc >= 1.3}
 BuildRequires:	libxslt-progs
 BuildRequires:	meson >= 1.4.0
 BuildRequires:	ninja
 BuildRequires:	pam-devel >= 0.80
 BuildRequires:	pkgconfig
+%if %{with tests}
+BuildRequires:	/bin/mount
+BuildRequires:	python3-dbus
+BuildRequires:	python3-dbusmock
+%endif
 BuildRequires:	rpm-build >= 4.6
 BuildRequires:	rpmbuild(macros) >= 2.042
 %{?with_systemd:BuildRequires:	systemd-devel}
+Requires(postun):	/usr/sbin/groupdel
+Requires(postun):	/usr/sbin/userdel
+Requires(pre):	/bin/id
+Requires(pre):	/usr/bin/getgid
+Requires(pre):	/usr/lib/rpm/user_group.sh
+Requires(pre):	/usr/sbin/groupadd
+Requires(pre):	/usr/sbin/useradd
+Requires(pre):	/usr/sbin/usermod
 Requires:	%{name}-libs = %{version}-%{release}
 %if %{without systemd} && %{without elogind}
 Requires:	ConsoleKit >= 0.4.1
@@ -115,20 +130,28 @@ Pliki nagłówkowe PolicyKit.
 %if %{with consolekit} && (%{with systemd} || %{with elogind})
 %patch -P0 -p1
 %endif
+%patch -P1 -p1
+%patch -P2 -p1
+%patch -P3 -p1
 
 %build
 %meson \
 	-Dgtk_doc=%{__true_false apidocs} \
-	-Dtests=false \
+	-Dtests=%{__true_false tests} \
 	-Dsession_tracking=%{?with_systemd:logind}%{?with_elogind:elogind} \
 	-Dpam_include=system-auth \
 	-Dpam_module_dir=/%{_lib}/security \
 	-Dpolkitd_user=polkitd \
 	-Dpolkitd_uid=283 \
 	-Dexamples=true \
-	-Dman=true
+	-Dman=true \
+	-Dgettext=true
 
 %meson_build
+
+%if %{with tests}
+%meson_test
+%endif
 
 %install
 rm -rf $RPM_BUILD_ROOT
@@ -144,6 +167,13 @@ rm -rf $RPM_BUILD_ROOT
 %groupadd -g 283 polkitd
 %useradd -u 283 -s /bin/false -c "polkitd pseudo user" -g polkitd polkitd
 %addusertogroup polkitd proc
+
+%preun
+# The socket-activated helper needs SO_PEERPIDFD (kernel >= 6.5) and PolkitAgentSession
+# falls back to the setuid helper only when the connect fails, so on older kernels an
+# enabled socket breaks authentication outright; the socket is therefore never enabled
+# on install, only deregistered here. https://github.com/polkit-org/polkit/issues/639
+%{?with_systemd:%systemd_preun polkit-agent-helper.socket}
 
 %postun
 if [ "$1" = "0" ]; then
