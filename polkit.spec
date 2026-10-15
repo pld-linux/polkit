@@ -12,17 +12,14 @@
 Summary:	A framework for defining policy for system-wide components
 Summary(pl.UTF-8):	Szkielet do definiowania polityki dla komponentów systemowych
 Name:		polkit
-Version:	127
-Release:	2
+Version:	128
+Release:	1
 License:	LGPL v2+
 Group:		Libraries
 Source0:	https://github.com/polkit-org/polkit/archive/%{version}/%{name}-%{version}.tar.gz
-# Source0-md5:	2cc95f1b02fc1de6c9e52db986642ec4
+# Source0-md5:	f1a11d7fedaa6c8c32e846eb6bc0181b
 Source1:	50-kernel-version.conf
 Patch0:		systemd-fallback.patch
-Patch1:		CVE-2026-4897.patch
-Patch2:		CVE-2026-85498.patch
-Patch3:		polkit-agent-session-use-after-free.patch
 URL:		https://github.com/polkit-org/polkit
 BuildRequires:	dbus-devel
 BuildRequires:	docbook-dtd412-xml
@@ -132,9 +129,6 @@ Pliki nagłówkowe PolicyKit.
 %if %{with consolekit} && (%{with systemd} || %{with elogind})
 %patch -P0 -p1
 %endif
-%patch -P1 -p1
-%patch -P2 -p1
-%patch -P3 -p1
 
 %build
 %meson \
@@ -230,6 +224,7 @@ fi
 %{_mandir}/man1/pkexec.1*
 %{_mandir}/man1/pkttyagent.1*
 %{_mandir}/man5/polkitd.conf.5*
+%{_mandir}/man8/polkit-agent-helper.8*
 %{_mandir}/man8/polkit.8*
 %{_mandir}/man8/polkitd.8*
 
